@@ -6,7 +6,12 @@ import { RETRYABLE_STAGES } from "@/lib/contract-types";
 import { readTransactions, writeTransactions } from "@/lib/storage";
 import { createReadClient } from "@/lib/genlayer/read-client";
 import type { TransactionHash } from "genlayer-js/types";
-import { inspectGenVMExecution } from "@/lib/genlayer/execution";
+import {
+  applyTransactionSnapshot,
+  normalizeStoredTransactions,
+  shouldRefreshTransaction,
+  STALE_AFTER_MS,
+} from "@/lib/transaction-state";
 
 type TransactionContextValue = {
   transactions: StoredTransaction[];
@@ -16,34 +21,6 @@ type TransactionContextValue = {
 };
 
 const TransactionContext = createContext<TransactionContextValue | null>(null);
-
-const COMPLETE_STATUSES = ["FINALIZED", "CANCELED", "UNDETERMINED"] as const;
-const ACTIVE_STATUSES = [
-  "PENDING",
-  "PROPOSING",
-  "COMMITTING",
-  "REVEALING",
-  "READY_TO_FINALIZE",
-  "APPEAL_COMMITTING",
-  "APPEAL_REVEALING",
-] as const;
-
-/** After two hours a still-active row is not in flight, it is abandoned. */
-const STALE_AFTER_MS = 2 * 60 * 60 * 1000;
-
-function shouldRefresh(tx: StoredTransaction) {
-  if (!ACTIVE_STATUSES.includes(tx.status as never)) return false;
-  const created = Date.parse(tx.createdAt);
-  return Number.isNaN(created) || Date.now() - created < STALE_AFTER_MS;
-}
-
-function normalizeStoredTransactions(items: StoredTransaction[]) {
-  return items.map((tx) =>
-    COMPLETE_STATUSES.includes(tx.status as never) || shouldRefresh(tx)
-      ? tx
-      : { ...tx, status: "UNDETERMINED" as TxStage },
-  );
-}
 
 export function TransactionProvider({ children }: { children: React.ReactNode }) {
   const [transactions, setTransactions] = useState<StoredTransaction[]>(() =>
@@ -74,7 +51,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     const staleMarked = normalizeStoredTransactions(readTransactions());
     writeTransactions(staleMarked);
-    const pending = staleMarked.filter(shouldRefresh);
+    const pending = staleMarked.filter((tx) => shouldRefreshTransaction(tx));
     if (pending.length === 0) return;
     const client = createReadClient();
     let cancelled = false;
@@ -84,9 +61,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
         pending.map(async (tx) => {
           try {
             const onchain = await client.getTransaction({ hash: tx.hash as TransactionHash });
-            const status = String(onchain?.statusName ?? tx.status).toUpperCase() as TxStage;
-            const outcome = status === "FINALIZED" ? inspectGenVMExecution(onchain) : {};
-            return { ...tx, status, ...outcome };
+            return applyTransactionSnapshot(tx, onchain);
           } catch {
             const created = Date.parse(tx.createdAt);
             if (!Number.isNaN(created) && Date.now() - created >= STALE_AFTER_MS) {

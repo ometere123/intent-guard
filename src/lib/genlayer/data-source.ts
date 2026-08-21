@@ -11,6 +11,7 @@ import type { DecodedAction, Rebuttal, Review } from "../contract-types";
 import { MOCK_REBUTTALS, MOCK_REVIEWS, MOCK_ACTIONS_BY_ID } from "../mock-data";
 import { CONTRACT_ADDRESS, DATA_MODE, IS_LIVE } from "./config";
 import * as live from "./contract";
+import { available, notFound, type ReadResult } from "./read-result";
 
 export type DataMode = "live" | "fixtures";
 
@@ -36,29 +37,31 @@ export function dataProvenance(): { mode: DataMode; line: string } {
   };
 }
 
-export async function listReviews(): Promise<Review[]> {
+export async function listReviews(): Promise<ReadResult<Review[]>> {
   if (IS_LIVE) return live.listReviews();
-  return MOCK_REVIEWS;
+  return available(MOCK_REVIEWS);
 }
 
-export async function getReview(id: string): Promise<Review | undefined> {
+export async function getReview(id: string): Promise<ReadResult<Review>> {
   if (IS_LIVE) return live.getReview(id);
-  return MOCK_REVIEWS.find((review) => review.id === id);
+  const review = MOCK_REVIEWS.find((item) => item.id === id);
+  return review ? available(review) : notFound();
 }
 
-export async function getActions(id: string): Promise<DecodedAction[]> {
+export async function getActions(id: string): Promise<ReadResult<DecodedAction[]>> {
   if (IS_LIVE) return live.getActions(id);
-  return MOCK_ACTIONS_BY_ID[id] ?? [];
+  return available(MOCK_ACTIONS_BY_ID[id] ?? []);
 }
 
-export async function getRebuttals(reviewId: string): Promise<Rebuttal[]> {
+export async function getRebuttals(reviewId: string): Promise<ReadResult<Rebuttal[]>> {
   if (IS_LIVE) return live.getRebuttals(reviewId);
-  return MOCK_REBUTTALS.filter((rebuttal) => rebuttal.review_id === reviewId);
+  return available(MOCK_REBUTTALS.filter((rebuttal) => rebuttal.review_id === reviewId));
 }
 
-export async function getRebuttal(id: string): Promise<Rebuttal | undefined> {
+export async function getRebuttal(id: string): Promise<ReadResult<Rebuttal>> {
   if (IS_LIVE) return live.getRebuttal(id);
-  return MOCK_REBUTTALS.find((rebuttal) => rebuttal.id === id);
+  const rebuttal = MOCK_REBUTTALS.find((item) => item.id === id);
+  return rebuttal ? available(rebuttal) : notFound();
 }
 
 /**
@@ -71,9 +74,16 @@ export async function isVetoed(
   proposalId: string,
 ): Promise<{ vetoed: boolean; review?: Review; known: boolean; unavailable: boolean; note: string }> {
   if (IS_LIVE) {
-    const answer = await live.isVetoed(governor, proposalId);
-    if (!answer) return { vetoed: false, known: false, unavailable: true, note: "The contract read was unavailable; no judgment is implied." };
-    const review = answer.review_id ? await live.getReview(answer.review_id) : undefined;
+    const answerResult = await live.isVetoed(governor, proposalId);
+    if (answerResult.kind !== "AVAILABLE") {
+      return { vetoed: false, known: false, unavailable: true, note: `The contract read was ${answerResult.kind.toLowerCase()}: ${"error" in answerResult ? answerResult.error : "record not found"}. No judgment is implied.` };
+    }
+    const answer = answerResult.value;
+    const reviewResult = answer.review_id ? await live.getReview(answer.review_id) : notFound<Review>();
+    const review = reviewResult.kind === "AVAILABLE" ? reviewResult.value : undefined;
+    if (answer.review_id && reviewResult.kind !== "AVAILABLE") {
+      return { vetoed: false, known: false, unavailable: true, note: `is_vetoed named review ${answer.review_id}, but that review could not be loaded (${reviewResult.kind.toLowerCase()}). No judgment is implied.` };
+    }
     return {
       vetoed: answer.vetoed === true,
       review,
@@ -95,8 +105,13 @@ export async function isVetoed(
   };
 }
 
-export async function ledgerCounts() {
-  const reviews = await listReviews();
+export async function ledgerCounts(): Promise<ReadResult<ReturnType<typeof countReviews>>> {
+  const result = await listReviews();
+  if (result.kind !== "AVAILABLE") return result;
+  return available(countReviews(result.value));
+}
+
+export function countReviews(reviews: Review[]) {
   const by = (status: Review["status"]) => reviews.filter((r) => r.status === status).length;
   return {
     total: reviews.length,

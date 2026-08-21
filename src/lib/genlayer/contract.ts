@@ -4,6 +4,14 @@ import { CONTRACT_ADDRESS, REQUIRED_METHODS } from "./config";
 import { createReadClient } from "./read-client";
 import type { DecodedAction, Rebuttal, Review, VetoState } from "../contract-types";
 import { assertSuccessfulGenVMExecution, inspectGenVMExecution } from "./execution";
+import {
+  available,
+  isRecord,
+  notFound,
+  performRead,
+  unavailable,
+  type ReadResult,
+} from "./read-result";
 
 type Client = GenLayerClient<typeof import("./config").chain>;
 
@@ -23,34 +31,38 @@ export async function verifyContractSchema() {
   return { ok: missing.length === 0, missing, configured: true };
 }
 
-export async function listReviews(): Promise<Review[]> {
-  if (!CONTRACT_ADDRESS) return [];
+export async function listReviews(): Promise<ReadResult<Review[]>> {
+  if (!CONTRACT_ADDRESS) return unavailable("No deployed contract address is configured.");
   const address = CONTRACT_ADDRESS;
   const client = createReadClient();
-  return (
-    (await readMaybe<Review[]>(() =>
-      client.readContract({ address, functionName: "list_reviews", args: [0n, 200n] }),
-    )) ?? []
+  return performRead(
+    () => client.readContract({ address, functionName: "list_reviews", args: [0n, 200n] }),
+    isReviewArray,
+    "list_reviews returned a malformed response",
   );
 }
 
-export async function getReview(id: string): Promise<Review | undefined> {
-  if (!CONTRACT_ADDRESS) return undefined;
+export async function getReview(id: string): Promise<ReadResult<Review>> {
+  if (!CONTRACT_ADDRESS) return unavailable("No deployed contract address is configured.");
   const address = CONTRACT_ADDRESS;
   const client = createReadClient();
-  return readMaybe<Review>(() =>
-    client.readContract({ address, functionName: "get_review", args: [id] }),
+  const result = await performRead(
+    () => client.readContract({ address, functionName: "get_review", args: [id] }),
+    isReviewOrEmpty,
+    "get_review returned a malformed response",
   );
+  if (result.kind !== "AVAILABLE") return result;
+  return Object.keys(result.value).length === 0 ? notFound() : available(result.value as Review);
 }
 
-export async function getActions(id: string): Promise<DecodedAction[]> {
-  if (!CONTRACT_ADDRESS) return [];
+export async function getActions(id: string): Promise<ReadResult<DecodedAction[]>> {
+  if (!CONTRACT_ADDRESS) return unavailable("No deployed contract address is configured.");
   const address = CONTRACT_ADDRESS;
   const client = createReadClient();
-  return (
-    (await readMaybe<DecodedAction[]>(() =>
-      client.readContract({ address, functionName: "get_actions", args: [id] }),
-    )) ?? []
+  return performRead(
+    () => client.readContract({ address, functionName: "get_actions", args: [id] }),
+    isActionArray,
+    "get_actions returned a malformed response",
   );
 }
 
@@ -61,37 +73,43 @@ export async function getActions(id: string): Promise<DecodedAction[]> {
 export async function isVetoed(
   governor: string,
   proposalId: string,
-): Promise<VetoState | undefined> {
-  if (!CONTRACT_ADDRESS) return undefined;
+): Promise<ReadResult<VetoState>> {
+  if (!CONTRACT_ADDRESS) return unavailable("No deployed contract address is configured.");
   const address = CONTRACT_ADDRESS;
   const client = createReadClient();
-  return readMaybe<VetoState>(() =>
-    client.readContract({
+  return performRead(
+    () => client.readContract({
       address,
       functionName: "is_vetoed",
       args: [governor, BigInt(proposalId)],
     }),
+    isVetoState,
+    "is_vetoed returned a malformed response",
   );
 }
 
-export async function getRebuttals(reviewId: string): Promise<Rebuttal[]> {
-  if (!CONTRACT_ADDRESS) return [];
+export async function getRebuttals(reviewId: string): Promise<ReadResult<Rebuttal[]>> {
+  if (!CONTRACT_ADDRESS) return unavailable("No deployed contract address is configured.");
   const address = CONTRACT_ADDRESS;
   const client = createReadClient();
-  return (
-    (await readMaybe<Rebuttal[]>(() =>
-      client.readContract({ address, functionName: "get_rebuttals", args: [reviewId] }),
-    )) ?? []
+  return performRead(
+    () => client.readContract({ address, functionName: "get_rebuttals", args: [reviewId] }),
+    isRebuttalArray,
+    "get_rebuttals returned a malformed response",
   );
 }
 
-export async function getRebuttal(id: string): Promise<Rebuttal | undefined> {
-  if (!CONTRACT_ADDRESS) return undefined;
+export async function getRebuttal(id: string): Promise<ReadResult<Rebuttal>> {
+  if (!CONTRACT_ADDRESS) return unavailable("No deployed contract address is configured.");
   const address = CONTRACT_ADDRESS;
   const client = createReadClient();
-  return readMaybe<Rebuttal>(() =>
-    client.readContract({ address, functionName: "get_rebuttal", args: [id] }),
+  const result = await performRead(
+    () => client.readContract({ address, functionName: "get_rebuttal", args: [id] }),
+    isRebuttalOrEmpty,
+    "get_rebuttal returned a malformed response",
   );
+  if (result.kind !== "AVAILABLE") return result;
+  return Object.keys(result.value).length === 0 ? notFound() : available(result.value as Rebuttal);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -137,6 +155,39 @@ async function readMaybe<T>(read: () => Promise<unknown>): Promise<T | undefined
     }
     throw error;
   }
+}
+
+function hasStrings(value: Record<string, unknown>, keys: string[]) {
+  return keys.every((key) => typeof value[key] === "string");
+}
+
+function isReview(value: unknown): value is Review {
+  return isRecord(value) && hasStrings(value, ["id", "governor", "proposal_id", "status"]);
+}
+function isReviewOrEmpty(value: unknown): value is Review | Record<string, never> {
+  return isRecord(value) && (Object.keys(value).length === 0 || isReview(value));
+}
+function isReviewArray(value: unknown): value is Review[] {
+  return Array.isArray(value) && value.every(isReview);
+}
+function isAction(value: unknown): value is DecodedAction {
+  return isRecord(value) && hasStrings(value, ["index", "target", "value", "selector"]);
+}
+function isActionArray(value: unknown): value is DecodedAction[] {
+  return Array.isArray(value) && value.every(isAction);
+}
+function isRebuttal(value: unknown): value is Rebuttal {
+  return isRecord(value) && hasStrings(value, ["id", "review_id", "status"]);
+}
+function isRebuttalOrEmpty(value: unknown): value is Rebuttal | Record<string, never> {
+  return isRecord(value) && (Object.keys(value).length === 0 || isRebuttal(value));
+}
+function isRebuttalArray(value: unknown): value is Rebuttal[] {
+  return Array.isArray(value) && value.every(isRebuttal);
+}
+function isVetoState(value: unknown): value is VetoState {
+  return isRecord(value) && typeof value.vetoed === "boolean" &&
+    typeof value.reviewed === "boolean" && hasStrings(value, ["status", "review_id", "note"]);
 }
 
 /**

@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const counts = await ledgerCounts();
+  const liveCounts = counts.kind === "AVAILABLE" ? counts.value : null;
 
   return (
     <div className="flex flex-col gap-14">
@@ -59,15 +60,19 @@ export default async function HomePage() {
       </section>
 
       <section className="border-y border-[var(--rule)] py-5">
-        <p className="ig-label">the fixture ledger, for inspection</p>
+        <p className="ig-label">ledger summary</p>
+        {!liveCounts ? (
+          <p className="ig-body mt-3">Live records could not be retrieved. This is not evidence that the ledger is empty.</p>
+        ) : (
         <dl className="mt-4 grid grid-cols-2 gap-5 sm:grid-cols-3 spread:grid-cols-6">
-          <Count label="records" value={counts.total} />
-          <Count label="aligned" value={counts.aligned} />
-          <Count label="divergent" value={counts.divergent} rubric />
-          <Count label="underspecified" value={counts.underspecified} />
-          <Count label="undecodable" value={counts.undecodable} />
-          <Count label="vetoes standing" value={counts.standingVetoes} rubric />
+          <Count label="records" value={liveCounts.total} />
+          <Count label="aligned" value={liveCounts.aligned} />
+          <Count label="divergent" value={liveCounts.divergent} rubric />
+          <Count label="underspecified" value={liveCounts.underspecified} />
+          <Count label="undecodable" value={liveCounts.undecodable} />
+          <Count label="vetoes standing" value={liveCounts.standingVetoes} rubric />
         </dl>
+        )}
       </section>
 
       <section className="grid gap-8 spread:grid-cols-3">

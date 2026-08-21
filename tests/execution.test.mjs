@@ -1,20 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
-function inspect(tx) {
-  const leader = tx?.consensus_data?.leader_receipt?.[0];
-  const raw = leader?.execution_result;
-  return raw === "SUCCESS" || raw === "ROLLBACK" || raw === "ERROR" ? raw : "UNKNOWN";
-}
+import { assertSuccessfulGenVMExecution, inspectGenVMExecution } from "../src/lib/genlayer/execution.ts";
 
 for (const [name, tx, expected] of [
-  ["success is explicit", { consensus_data: { leader_receipt: [{ execution_result: "SUCCESS" }] } }, "SUCCESS"],
-  ["rollback is not success", { consensus_data: { leader_receipt: [{ execution_result: "ROLLBACK" }] } }, "ROLLBACK"],
-  ["error is not success", { consensus_data: { leader_receipt: [{ execution_result: "ERROR" }] } }, "ERROR"],
+  ["SUCCESS is explicit", { consensus_data: { leader_receipt: [{ execution_result: "SUCCESS" }] } }, "SUCCESS"],
+  ["ROLLBACK fails closed", { consensus_data: { leader_receipt: [{ execution_result: "ROLLBACK" }] } }, "ROLLBACK"],
+  ["ERROR fails closed", { consensus_data: { leader_receipt: [{ execution_result: "ERROR" }] } }, "ERROR"],
+  ["missing execution_result fails closed", { consensus_data: { leader_receipt: [{}] } }, "UNKNOWN"],
+  ["malformed execution_result fails closed", { consensus_data: { leader_receipt: [{ execution_result: 7 }] } }, "UNKNOWN"],
   ["missing receipt fails closed", { consensus_data: {} }, "UNKNOWN"],
-  ["malformed receipt fails closed", { consensus_data: { leader_receipt: [{}] } }, "UNKNOWN"],
-]) test(name, () => assert.equal(inspect(tx), expected));
+  ["missing transaction fails closed", undefined, "UNKNOWN"],
+  ["malformed transaction fails closed", "bad", "UNKNOWN"],
+]) test(name, () => assert.equal(inspectGenVMExecution(tx).executionResult, expected));
 
 test("only SUCCESS satisfies application success", () => {
-  for (const result of ["ROLLBACK", "ERROR", "UNKNOWN"]) assert.notEqual(result, "SUCCESS");
+  assert.doesNotThrow(() => assertSuccessfulGenVMExecution({ consensus_data: { leader_receipt: [{ execution_result: "SUCCESS" }] } }, "0xsuccess"));
+  for (const execution_result of ["ROLLBACK", "ERROR", undefined, "MALFORMED"]) {
+    assert.throws(() => assertSuccessfulGenVMExecution({ consensus_data: { leader_receipt: [{ execution_result }] } }, "0xfail"), /execution failed/);
+  }
 });

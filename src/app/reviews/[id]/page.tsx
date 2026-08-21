@@ -22,8 +22,9 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const review = await getReview(id);
-  if (!review) return { title: id };
+  const reviewResult = await getReview(id);
+  if (reviewResult.kind !== "AVAILABLE") return { title: id };
+  const review = reviewResult.value;
   return {
     title: `${id} · ${titleText(review.mandate_title) || "untitled mandate"}`,
     description: review.rationale.slice(0, 180) || undefined,
@@ -32,11 +33,17 @@ export async function generateMetadata({
 
 export default async function ReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const review = await getReview(id);
-  if (!review) notFound();
+  const reviewResult = await getReview(id);
+  if (reviewResult.kind === "NOT_FOUND") notFound();
+  if (reviewResult.kind !== "AVAILABLE") {
+    return <ReadUnavailable subject={`review ${id}`} detail={reviewResult.error} />;
+  }
+  const review = reviewResult.value;
 
-  const [actions, rebuttals] = await Promise.all([getActions(id), getRebuttals(id)]);
-  const model = buildApparatus(review, actions);
+  const [actionsResult, rebuttalsResult] = await Promise.all([getActions(id), getRebuttals(id)]);
+  const actions = actionsResult.kind === "AVAILABLE" ? actionsResult.value : [];
+  const rebuttals = rebuttalsResult.kind === "AVAILABLE" ? rebuttalsResult.value : [];
+  const model = actionsResult.kind === "AVAILABLE" ? buildApparatus(review, actions) : null;
   const status = REVIEW_STATUS_TEXT[review.status];
   const vetoCleared = review.status === "DIVERGENT" && !review.veto_flag;
 
@@ -83,7 +90,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
           color: review.veto_flag ? "var(--rubric)" : undefined,
         }}
       >
-        {model.finding}
+        {model?.finding ?? "The review exists, but its decoded actions are currently unavailable."}
       </p>
 
       {vetoCleared ? (
@@ -129,27 +136,33 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
 
       {/* ---- The apparatus ---- */}
       <section aria-labelledby="apparatus-head" className="flex flex-col gap-6">
-        <div className="flex flex-col gap-3">
-          <h2 id="apparatus-head" className="ig-heading">
-            The apparatus
-          </h2>
-          <p className="ig-aside max-w-[74ch]">
-            The mandate on the left, the calldata on the right, and in the gutter between them a
-            thread for every clause that authorises an action. Focus a clause or an action and its
-            counterpart is marked. Each card also states its relationship in words.
-          </p>
-          <ApparatusLegend model={model} />
-          {!model.mandateTextAvailable ? (
-            <p className="ig-aside max-w-[74ch] pl-3" style={{ borderLeft: "3px solid var(--thread)" }}>
-              The contract records the mandate by digest and title, not as prose — 7,141 bytes of
-              markdown do not belong in contract storage. The verso therefore carries clause
-              anchors rather than quotations. The full description lives in the governor&apos;s
-              ProposalCreated log at block {review.creation_block || "—"}.
-            </p>
-          ) : null}
-        </div>
+        {!model ? (
+          <ReadUnavailable subject="decoded actions" detail={"error" in actionsResult ? actionsResult.error : "not found"} compact />
+        ) : (
+          <>
+            <div className="flex flex-col gap-3">
+              <h2 id="apparatus-head" className="ig-heading">
+                The apparatus
+              </h2>
+              <p className="ig-aside max-w-[74ch]">
+                The mandate on the left, the calldata on the right, and in the gutter between them a
+                thread for every clause that authorises an action. Focus a clause or an action and its
+                counterpart is marked. Each card also states its relationship in words.
+              </p>
+              <ApparatusLegend model={model} />
+              {!model.mandateTextAvailable ? (
+                <p className="ig-aside max-w-[74ch] pl-3" style={{ borderLeft: "3px solid var(--thread)" }}>
+                  The contract records the mandate by digest and title, not as prose — 7,141 bytes of
+                  markdown do not belong in contract storage. The verso therefore carries clause
+                  anchors rather than quotations. The full description lives in the governor&apos;s
+                  ProposalCreated log at block {review.creation_block || "—"}.
+                </p>
+              ) : null}
+            </div>
 
-        <Apparatus model={model} review={review} />
+            <Apparatus model={model} review={review} />
+          </>
+        )}
       </section>
 
       {/* ---- The mandate as recorded ---- */}
@@ -193,7 +206,9 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
         <h2 id="rebuttal-head" className="ig-heading">
           Right of reply
         </h2>
-        {rebuttals.length === 0 ? (
+        {rebuttalsResult.kind !== "AVAILABLE" ? (
+          <ReadUnavailable subject="rebuttals" detail={"error" in rebuttalsResult ? rebuttalsResult.error : "not found"} compact />
+        ) : rebuttals.length === 0 ? (
           <p className="ig-aside max-w-[74ch]">
             No rebuttal has been filed.{" "}
             {review.status === "DIVERGENT" ? (
@@ -299,6 +314,10 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
       </section>
     </article>
   );
+}
+
+function ReadUnavailable({ subject, detail, compact = false }: { subject: string; detail: string; compact?: boolean }) {
+  return <section className={compact ? "border-l-2 border-[var(--rubric)] pl-3" : "flex max-w-[70ch] flex-col gap-3 border border-[var(--rule-strong)] p-5"}><p className="ig-heading">Live {subject} could not be retrieved.</p><p className="ig-body">This is not evidence that the record or its children are empty.</p><p className="ig-calldata-sm break-all">{detail}</p></section>;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

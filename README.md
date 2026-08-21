@@ -48,7 +48,7 @@ The frontend switches entirely to live state when the deployed address and live 
 
 ## Environment
 
-Create `.env.local`:
+Create `.env.local` from `.env.example`:
 
 ```bash
 NEXT_PUBLIC_GENLAYER_CHAIN=studionet
@@ -62,7 +62,7 @@ Set the address and change the data mode to `live` after deployment.
 ## Local Development
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -75,11 +75,13 @@ npm run typecheck
 npm run lint
 npm run build
 npm test
+npm run test:direct
+npm run verify:decoder
 npm run verify:deployment
 npm run verify:schema   # requires a deployed address
 ```
 
-The repository includes focused fail-closed execution regression tests. Earlier parent-workspace fixture replay exercised 62 decoder cases and found four contract bugs, but that historical harness is not represented as an in-repository release test. The deployed contract's `keccak_self_test` and `decoder_self_test` both returned `ok: true`; schema verification exposed all 20 public methods. `scripts/exercise-studionet.mjs` performs a funded request/review walk and refuses to continue unless each finalized write contains explicit GenVM `SUCCESS`.
+The repository includes production-module transaction/read regressions, direct state-machine tests, and a decoder corpus that executes the deterministic decoder embedded in `contracts/IntentGuard.py`. The decoder suite binds itself to `decoder_fingerprint()` so a changed embedded primitive fails review rather than drifting silently. The deployed contract's `keccak_self_test` and `decoder_self_test` both returned `ok: true`; schema verification exposed all 20 public methods. `scripts/exercise-studionet.mjs` performs a paced funded request/review walk and refuses to continue unless each finalized write contains explicit GenVM `SUCCESS`.
 
 A network transaction may be accepted and finalized while its GenVM execution rolls back. Intent Guard therefore treats consensus status and contract execution as separate facts; missing, malformed, `ERROR`, or `ROLLBACK` execution data never becomes application success.
 
@@ -90,6 +92,8 @@ A network transaction may be accepted and finalized while its GenVM execution ro
 - Explorer disagreement, unverified selectors and payloads beyond the declared nesting limit produce `UNDECODABLE`, never an inferred verdict.
 - A veto is advisory. The contract cannot halt governance by itself, and token holders can override it.
 - Live web sources can fail or drift. Refusals are visible in the same ledger as findings.
+- Independent explorer retrieval of deployed source is unavailable, so repository-source equality with the deployed bytecode is not claimed.
+- A successful bonded StudioNet request/review lifecycle is still pending and is a release blocker, not papered over by the existence of a harness.
 
 ## Design
 

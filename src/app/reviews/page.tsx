@@ -13,6 +13,7 @@ export const metadata: Metadata = {
 
 export default async function ReviewsPage() {
   const [reviews, counts] = await Promise.all([listReviews(), ledgerCounts()]);
+  const ledgerAvailable = reviews.kind === "AVAILABLE" && counts.kind === "AVAILABLE";
 
   return (
     <div className="flex flex-col gap-10">
@@ -29,16 +30,16 @@ export default async function ReviewsPage() {
         </Link>
       </header>
 
-      <dl className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3 spread:grid-cols-6">
-        <Count label="records" value={counts.total} />
-        <Count label="aligned" value={counts.aligned} />
-        <Count label="divergent" value={counts.divergent} rubric />
-        <Count label="underspecified" value={counts.underspecified} />
-        <Count label="undecodable" value={counts.undecodable} />
-        <Count label="vetoes standing" value={counts.standingVetoes} rubric />
+      {!ledgerAvailable ? <p className="ig-body">Live records could not be retrieved. This is not an empty ledger.</p> : <><dl className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3 spread:grid-cols-6">
+        <Count label="records" value={counts.value.total} />
+        <Count label="aligned" value={counts.value.aligned} />
+        <Count label="divergent" value={counts.value.divergent} rubric />
+        <Count label="underspecified" value={counts.value.underspecified} />
+        <Count label="undecodable" value={counts.value.undecodable} />
+        <Count label="vetoes standing" value={counts.value.standingVetoes} rubric />
       </dl>
 
-      <ReviewIndexClient reviews={reviews} />
+      <ReviewIndexClient reviews={reviews.value} /></>}
     </div>
   );
 }

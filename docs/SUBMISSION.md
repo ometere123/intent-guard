@@ -12,7 +12,12 @@ Intent Guard records whether a Governor proposal's corroborated executable actio
 | Deployed-source equality | PENDING | Explorer source was not retrieved; equality is not claimed. |
 | Schema | PASS | Earlier deployed read exposed all 20 required methods. |
 | Contract self-tests | PASS | Earlier deployed reads returned `ok: true` for both self-tests. |
-| Fail-closed execution tests | PASS | `node --test tests/*.test.mjs`: 6/6. |
+| Production Node regressions | PASS | `node --test tests/*.test.mjs`: 20/20. |
+| Direct contract and decoder tests | PASS | `python -m pytest tests/direct -q`: 8/8. |
+| Decoder parity/drift guard | PASS | In-repo corpus executes the embedded decoder and checks `decoder_fingerprint()`. |
+| ACCEPTED restoration | PASS | Persisted `ACCEPTED` remains active, resumes polling, and never counts as application success. |
+| Live-read failure semantics | PASS | Empty/not-found remain distinct from unavailable/malformed reads across ledger, detail and guard surfaces. |
+| Linux CI | PENDING | Workflow is committed; no remote GitHub Actions run exists for this commit yet. |
 | TypeScript | PASS | `tsc --noEmit`. |
 | ESLint | PASS | `eslint .`. |
 | Production build | PASS | `next build`. |
@@ -34,7 +39,7 @@ Intent Guard records whether a Governor proposal's corroborated executable actio
 ## Reproduction
 
 ```bash
-npm install
+npm ci
 npm run verify
 npm run verify:schema
 python -m py_compile contracts/IntentGuard.py
@@ -44,14 +49,17 @@ genvm-lint check contracts/IntentGuard.py
 For the funded proof:
 
 ```bash
-npm run verify:studionet -- <keystore> <password>
+npm run verify:studionet -- <review-id> <request-tx-hash> <review-tx-hash>
 ```
 
-The harness uses `1000000000000000` wei, waits for finality, requires explicit GenVM success after each write, reads the stored `PENDING` record before review, then asserts coherent `get_review`, `get_actions`, and `is_vetoed` state. It exits non-zero on rollback or missing execution data.
+Writes must be signed by the already-unlocked GenLayer CLI account. The verifier accepts only the resulting transaction hashes: it paces reads at five-second intervals, backs off on rate limits, requires `FINALIZED` plus explicit GenVM `SUCCESS` for both writes, and then asserts coherent `get_review`, `get_actions`, and `is_vetoed` state for the exact review id. It exits non-zero on rollback, missing execution data, or ambiguous record discovery.
+
+The current GenLayer CLI exposes `--fee-value` for the transaction fee deposit, but no option for `gl.message.value`. Because `request_review` requires a native review bond, the CLI cannot currently submit that payable call. No credential export or alternate signer path is used.
 
 ## Honest limitations
 
 - Adapters are intentionally limited to the governors returned by `supported_governors`; unsupported implementations are refused.
 - A veto is advisory and can be cleared by a fresh governance vote.
 - The mechanism checks mandate/action correspondence, not policy merit or target-contract safety.
-- The historical 62-case fixture replay lived outside this release repository. It informed fixes but is not counted as an in-repository release test.
+- The in-repository decoder corpus covers the load-bearing byte/selector/dynamic-array/nesting/canonicalization paths, but it is not represented as a recovered copy of the historical 62-case parent-workspace replay.
+- The full bonded StudioNet lifecycle and a rebuttal/override branch remain unproven.
