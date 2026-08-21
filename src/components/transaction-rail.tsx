@@ -67,7 +67,7 @@ export function TransactionRail({ onClose }: { onClose?: () => void }) {
                   <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                     <p className="ig-body">{tx.label}</p>
                     <p className={`ig-calldata-sm ${retryable ? "" : "ig-label-ink"}`}>
-                      {tx.status.replaceAll("_", " ").toLowerCase()}
+                      {tx.status === "FINALIZED" && tx.executionResult ? `finalized / GenVM ${tx.executionResult.toLowerCase()}` : tx.status.replaceAll("_", " ").toLowerCase()}
                     </p>
                   </div>
 
@@ -93,7 +93,7 @@ export function TransactionRail({ onClose }: { onClose?: () => void }) {
                     ))}
                   </div>
 
-                  <p className="ig-aside mt-2">{STAGE_NOTE[tx.status] ?? tx.status.toLowerCase()}</p>
+                  <p className="ig-aside mt-2">{tx.status === "FINALIZED" && tx.executionResult === "ROLLBACK" ? "finalized on the network, but the contract call rolled back; no application success." : tx.status === "FINALIZED" && tx.executionResult === "ERROR" ? "finalized on the network, but GenVM reported an execution error." : STAGE_NOTE[tx.status] ?? tx.status.toLowerCase()}</p>
 
                   {retryable ? (
                     <p

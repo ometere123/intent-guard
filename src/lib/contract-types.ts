@@ -286,13 +286,16 @@ export const RETRYABLE_STAGES = new Set<string>([
   "LEADER_TIMEOUT",
 ]);
 
-export const TERMINAL_STAGES = new Set<string>(["ACCEPTED", "FINALIZED", "CANCELED"]);
+export const TERMINAL_STAGES = new Set<string>(["FINALIZED", "CANCELED"]);
 
 export type StoredTransaction = {
   hash: `0x${string}`;
   label: string;
   createdAt: string;
   status: TxStage;
+  /** Finalized GenVM outcome, kept separately from consensus status. */
+  executionResult?: "SUCCESS" | "ROLLBACK" | "ERROR" | "UNKNOWN";
+  executionError?: string;
   functionName: string;
   /** Which review the transaction belongs to, so the rail can link back. */
   reviewId?: string;

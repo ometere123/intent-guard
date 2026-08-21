@@ -22,7 +22,7 @@ Intent Guard retrieves both halves from authoritative sources during GenLayer co
 StudioNet contract: `0x971406b8F8efFA474F19657d7e55549A17e2b157`  
 Deployment transaction: `0x72153b5f2147fd36308324e9f64242e5b49fde8f28d735cb4d944874508e3f51`
 
-The frontend is complete in fixture mode and switches entirely to live state when `NEXT_PUBLIC_INTENT_GUARD_CONTRACT` is configured. Deployment address and proof transactions must be added here only after they exist; this README deliberately does not fabricate them.
+The frontend switches entirely to live state when the deployed address and live data mode are configured. The deployment manifest freezes the submitted contract file's SHA-256; the Explorer source could not be fetched programmatically, so deployed-source equality is not claimed.
 
 ### Main methods
 
@@ -74,10 +74,14 @@ Open `http://localhost:3000`.
 npm run typecheck
 npm run lint
 npm run build
+npm test
+npm run verify:deployment
 npm run verify:schema   # requires a deployed address
 ```
 
-The offline fixture-replay harness exercises 62 proposal decoding cases and found four contract bugs before release, including a first-call `request_review` revert. The deployed contract's `keccak_self_test` and `decoder_self_test` both return `ok: true`; schema verification exposes all 20 public methods. The repository also includes `scripts/exercise-studionet.mjs` for a funded request/review walk.
+The repository includes focused fail-closed execution regression tests. Earlier parent-workspace fixture replay exercised 62 decoder cases and found four contract bugs, but that historical harness is not represented as an in-repository release test. The deployed contract's `keccak_self_test` and `decoder_self_test` both returned `ok: true`; schema verification exposed all 20 public methods. `scripts/exercise-studionet.mjs` performs a funded request/review walk and refuses to continue unless each finalized write contains explicit GenVM `SUCCESS`.
+
+A network transaction may be accepted and finalized while its GenVM execution rolls back. Intent Guard therefore treats consensus status and contract execution as separate facts; missing, malformed, `ERROR`, or `ROLLBACK` execution data never becomes application success.
 
 ## Honest Limits
 

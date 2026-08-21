@@ -1,64 +1,57 @@
-# Intent Guard Submission Notes
+# Intent Guard — Reviewer Evidence
 
-## Submission Summary
+Intent Guard records whether a Governor proposal's corroborated executable actions stay within its published mandate. Deterministic gates establish bytes, selectors, bounds, and digests; GenLayer consensus compares those bounded facts to natural-language authority. Free-form rationale is explanatory and excluded from equivalence.
 
-Intent Guard is a GenLayer execution-integrity mechanism for on-chain governance. Validators retrieve a proposal's authoritative published mandate and its executable Governor action set, corroborate and decode the calls, and decide whether the action scope matches the authority voters approved. Divergences create an advisory veto with a bonded right of reply; token holders retain an explicit on-chain override.
+## Release evidence
 
-## Trust Problem
+| Item | Status | Evidence |
+| --- | --- | --- |
+| Contract deployed | PASS | `0x971406b8F8efFA474F19657d7e55549A17e2b157` |
+| Deployment transaction | PASS | `0x72153b5f2147fd36308324e9f64242e5b49fde8f28d735cb4d944874508e3f51` |
+| Local source binding | PASS | `DEPLOYMENT.json`; SHA-256 `8a2e3f1e7773c44c2ea5b6a54feabb3ea081d3ec230ff23d29b6397cb608e9b3` |
+| Deployed-source equality | PENDING | Explorer source was not retrieved; equality is not claimed. |
+| Schema | PASS | Earlier deployed read exposed all 20 required methods. |
+| Contract self-tests | PASS | Earlier deployed reads returned `ok: true` for both self-tests. |
+| Fail-closed execution tests | PASS | `node --test tests/*.test.mjs`: 6/6. |
+| TypeScript | PASS | `tsc --noEmit`. |
+| ESLint | PASS | `eslint .`. |
+| Production build | PASS | `next build`. |
+| Bonded `request_review` | PENDING | No successful public transaction is recorded. |
+| Consensus `review` | PENDING | No successful public transaction is recorded. |
+| Stored review/actions/veto read | PENDING | Proof harness is ready but has not produced proof here. |
+| Rebuttal or override | PENDING | Not exercised on StudioNet. |
+| Live application | PENDING | No verified public URL is recorded. |
 
-Governance votes are cast against natural-language descriptions while execution occurs through calldata. Today the correspondence between those artifacts is mostly a manual review assumption. Intent Guard turns it into a public, contestable contract record.
+## Integrity boundary
 
-## Why GenLayer Is Central
+- `ACCEPTED` is not application success.
+- `FINALIZED` is not application success by itself.
+- Success requires `FINALIZED` plus explicit leader `execution_result === "SUCCESS"`.
+- `ROLLBACK`, `ERROR`, missing receipt, or malformed execution data fail closed and persist in the transaction rail.
+- `is_vetoed.reviewed` distinguishes reviewed-clear from no record. The frontend uses the returned `review_id`; it never scans the ledger.
+- `UNDECODABLE` is a refusal gate and cannot create a veto.
 
-The main workflow requires live web/RPC retrieval, deterministic byte-level decoding, and semantic comparison of text against structured actions. GenLayer validators perform those steps inside consensus and store the outcome and dispute lifecycle. Removing the Intelligent Contract removes the product's trust mechanism, not merely an AI feature.
+## Reproduction
 
-## Differentiation
+```bash
+npm install
+npm run verify
+npm run verify:schema
+python -m py_compile contracts/IntentGuard.py
+genvm-lint check contracts/IntentGuard.py
+```
 
-This is not a proposal summarizer or an AI voting assistant. The model never receives raw calldata and never chooses policy. Deterministic gates recover, corroborate and decode the action set first; the semantic round answers only whether the mandate authorises it. A named divergence index is then checked against the actual action range before a veto can be written.
+For the funded proof:
 
-## Evidence Already Established
+```bash
+npm run verify:studionet -- <keystore> <password>
+```
 
-- Blockscout keyless JSON-RPC supports the required POST requests and headers from GenLayer.
-- Real Uniswap proposals 99 and 100 were retrieved and decoded end-to-end.
-- Proposal 100 exercised multiple action and nested-wrapper decoder branches.
-- Selector lookups are treated as untrusted and accepted only when keccak verification matches.
-- A 62-case offline fixture replay found and drove fixes for four real contract defects.
-- The frontend covers fixture/live provenance, wallet connection, writes, consensus stages, verdicts, rebuttals, overrides and the executor-facing veto lookup.
+The harness uses `1000000000000000` wei, waits for finality, requires explicit GenVM success after each write, reads the stored `PENDING` record before review, then asserts coherent `get_review`, `get_actions`, and `is_vetoed` state. It exits non-zero on rollback or missing execution data.
 
-## Release Evidence To Insert After Deployment
+## Honest limitations
 
-Do not submit until every placeholder below is replaced with public evidence.
-
-| Item | Evidence |
-| --- | --- |
-| Live application | `PENDING` |
-| StudioNet contract | `0x971406b8F8efFA474F19657d7e55549A17e2b157` |
-| Deployment transaction | `0x72153b5f2147fd36308324e9f64242e5b49fde8f28d735cb4d944874508e3f51` |
-| Bonded `request_review` | `PENDING` |
-| Permissionless `review` consensus transaction | `PENDING` |
-| Stored review read | `PENDING` |
-| `is_vetoed` structured read | `PENDING` |
-| Rebuttal or override branch | `PENDING` |
-| Schema verification | `PASS — deployed schema exposes 20 required methods; keccak_self_test and decoder_self_test both ok` |
-
-## Demo Walkthrough
-
-1. Open the ledger and select a record to show the mandate/calldata apparatus and explicit data provenance.
-2. Open `/reviews/new`, connect a wallet, and create a bonded review for a supported proposal.
-3. Run the permissionless review and show the transaction rail through finality.
-4. Read the stored rationale, decoded action set, digests and veto state.
-5. Open `/guard` and demonstrate the same integration question an executor bot calls.
-6. Demonstrate either a bonded rebuttal or `clear_veto_by_vote`, emphasizing that the mechanism raises objections but never governs the DAO.
-
-## Submission Checklist
-
-- [x] Deploy the exact committed contract to StudioNet.
-- [x] Record the contract address and deployment transaction in README and this file.
-- [ ] Run `npm run verify:schema` against the deployed contract.
-- [ ] Complete at least one real bonded request and consensus review.
-- [ ] Confirm the stored review and `is_vetoed` response with public transaction links.
-- [ ] Exercise one adversarial branch: rebuttal or governance override.
-- [ ] Deploy the frontend with live-mode environment variables.
-- [ ] Run typecheck, lint and production build on the release commit.
-- [ ] Test wallet and transaction lifecycle on mobile and desktop.
-- [ ] Replace the live-app and write-walk entries with public explorer/Vercel evidence after external publication. The local CLI deployment and schema/read evidence are recorded above; the standalone genlayer-js write walk was blocked by the workspace network policy before submission.
+- Adapters are intentionally limited to the governors returned by `supported_governors`; unsupported implementations are refused.
+- A veto is advisory and can be cleared by a fresh governance vote.
+- The mechanism checks mandate/action correspondence, not policy merit or target-contract safety.
+- The historical 62-case fixture replay lived outside this release repository. It informed fixes but is not counted as an in-repository release test.

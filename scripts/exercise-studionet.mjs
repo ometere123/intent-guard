@@ -31,19 +31,43 @@ const client = createClient({
   endpoint: process.env.NEXT_PUBLIC_GENLAYER_ENDPOINT ?? "https://studio.genlayer.com/api",
 });
 const id = `ig-live-${Date.now()}`;
+const MIN_REVIEW_BOND_WEI = 1_000_000_000_000_000n;
+async function finalized(hash, label) {
+  const receipt = await client.waitForTransactionReceipt({ hash, status: "FINALIZED", interval: 10000, retries: 120 });
+  const tx = await client.getTransaction({ hash });
+  const leader = tx?.consensus_data?.leader_receipt?.[0];
+  const execution = leader?.execution_result;
+  if (execution !== "SUCCESS") throw new Error(`${label} finalized without GenVM SUCCESS (${execution ?? "missing"}): ${hash}`);
+  return { receipt, tx, execution };
+}
 const hash = await client.writeContract({
   address,
   functionName: "request_review",
   args: [id, "0x408ED6354d4973f66138C91495F2f2FCbd8724C3", 100n, 25554834n],
-  value: 1_000_000_000_000_000n,
+  value: MIN_REVIEW_BOND_WEI,
 });
-const receipt = await client.waitForTransactionReceipt({ hash, status: "ACCEPTED", interval: 10000, retries: 90 });
+const requestFinal = await finalized(hash, "request_review");
+const pending = await client.readContract({ address, functionName: "get_review", args: [id] });
+if (!pending || pending.status !== "PENDING") throw new Error(`request_review did not store PENDING review: ${id}`);
 const reviewHash = await client.writeContract({ address, functionName: "review", args: [id], value: 0n });
-const reviewReceipt = await client.waitForTransactionReceipt({ hash: reviewHash, status: "ACCEPTED", interval: 10000, retries: 120 });
+const reviewFinal = await finalized(reviewHash, "review");
 const review = await client.readContract({ address, functionName: "get_review", args: [id] });
+const actions = await client.readContract({ address, functionName: "get_actions", args: [id] });
+const veto = await client.readContract({ address, functionName: "is_vetoed", args: ["0x408ED6354d4973f66138C91495F2f2FCbd8724C3", 100n] });
+if (!review || review.status === "PENDING") throw new Error(`review did not produce a semantic outcome: ${id}`);
+if (!veto || veto.reviewed !== true) throw new Error(`is_vetoed did not report reviewed state: ${id}`);
 console.log(JSON.stringify({
+  network: "studionet",
+  contract: address,
   id,
-  request: { hash, status: receipt.status_name ?? receipt.status, execution: receipt.consensus_data?.leader_receipt?.[0]?.execution_result },
-  reviewTx: { hash: reviewHash, status: reviewReceipt.status_name ?? reviewReceipt.status, execution: reviewReceipt.consensus_data?.leader_receipt?.[0]?.execution_result },
+  request: { hash, status: requestFinal.receipt.status_name ?? requestFinal.receipt.status, execution: requestFinal.execution },
+  reviewTx: { hash: reviewHash, status: reviewFinal.receipt.status_name ?? reviewFinal.receipt.status, execution: reviewFinal.execution },
+  storedStatus: review.status,
+  verdict: review.status,
+  gate: review.undecodable_gate ?? "",
+  actionsDigest: review.actions_digest,
+  mandateDigest: review.mandate_digest,
+  veto,
+  actions,
   review,
 }, null, 2));

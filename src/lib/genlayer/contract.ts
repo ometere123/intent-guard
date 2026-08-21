@@ -3,6 +3,7 @@ import type { CalldataEncodable, GenLayerClient, TransactionHash } from "genlaye
 import { CONTRACT_ADDRESS, REQUIRED_METHODS } from "./config";
 import { createReadClient } from "./read-client";
 import type { DecodedAction, Rebuttal, Review, VetoState } from "../contract-types";
+import { assertSuccessfulGenVMExecution, inspectGenVMExecution } from "./execution";
 
 type Client = GenLayerClient<typeof import("./config").chain>;
 
@@ -143,7 +144,9 @@ async function readMaybe<T>(read: () => Promise<unknown>): Promise<T | undefined
  * receipt. A receipt arriving is not the same as the contract having succeeded:
  * a rolled-back write still finalizes.
  */
-export async function waitAccepted(client: Client, hash: TransactionHash) {
+export type FinalizedExecution = { status: string; executionResult: "SUCCESS" | "ROLLBACK" | "ERROR" | "UNKNOWN"; executionError?: string };
+
+export async function getFinalizedExecution(client: Client, hash: TransactionHash): Promise<FinalizedExecution> {
   const receipt = await client.waitForTransactionReceipt({
     hash,
     status: TransactionStatus.FINALIZED,
@@ -151,9 +154,15 @@ export async function waitAccepted(client: Client, hash: TransactionHash) {
     retries: 90,
   });
   const finalized = await client.getTransaction({ hash });
-  const result = finalized?.consensus_data?.leader_receipt?.[0]?.execution_result;
-  if (result && result !== "SUCCESS") {
-    throw new Error(`GenLayer contract execution failed (${result}). Transaction: ${hash}`);
-  }
-  return receipt;
+  const outcome = inspectGenVMExecution(finalized);
+  return { status: String(receipt.statusName ?? receipt.status ?? "FINALIZED"), ...outcome };
+}
+
+export async function waitAccepted(client: Client, hash: TransactionHash) {
+  const outcome = await getFinalizedExecution(client, hash);
+  assertSuccessfulGenVMExecution(
+    { consensus_data: { leader_receipt: [{ execution_result: outcome.executionResult, error: outcome.executionError ?? null }] } },
+    hash,
+  );
+  return outcome;
 }

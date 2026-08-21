@@ -122,8 +122,8 @@ export function useWriteRunner() {
           reviewId: options.reviewId,
         });
         setState({ phase: "consensus-running", hash });
-        await waitAccepted(client, hash);
-        update(hash, "FINALIZED");
+        const outcome = await waitAccepted(client, hash);
+        update(hash, "FINALIZED", outcome.executionResult, outcome.executionError);
         setState({ phase: "settled", hash });
         return { ok: true as const, hash };
       } catch (error) {

@@ -1,0 +1,10 @@
+{
+  "network": "studionet",
+  "contract": "0x971406b8F8efFA474F19657d7e55549A17e2b157",
+  "deploymentTransaction": "0x72153b5f2147fd36308324e9f64242e5b49fde8f28d735cb4d944874508e3f51",
+  "gitCommitAtDeployment": "dab05e6",
+  "contractFile": "contracts/IntentGuard.py",
+  "contractSha256": "8a2e3f1e7773c44c2ea5b6a54feabb3ea081d3ec230ff23d29b6397cb608e9b3",
+  "deployedSourceVerified": false,
+  "verificationNote": "The local contract hash is frozen, but deployed-source retrieval was not available; equality is not claimed."
+}

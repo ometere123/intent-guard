@@ -6,17 +6,18 @@ import { RETRYABLE_STAGES } from "@/lib/contract-types";
 import { readTransactions, writeTransactions } from "@/lib/storage";
 import { createReadClient } from "@/lib/genlayer/read-client";
 import type { TransactionHash } from "genlayer-js/types";
+import { inspectGenVMExecution } from "@/lib/genlayer/execution";
 
 type TransactionContextValue = {
   transactions: StoredTransaction[];
   clear: () => void;
   track: (tx: StoredTransaction) => void;
-  update: (hash: StoredTransaction["hash"], status: TxStage) => void;
+  update: (hash: StoredTransaction["hash"], status: TxStage, executionResult?: StoredTransaction["executionResult"], executionError?: string) => void;
 };
 
 const TransactionContext = createContext<TransactionContextValue | null>(null);
 
-const COMPLETE_STATUSES = ["ACCEPTED", "FINALIZED", "CANCELED", "UNDETERMINED"] as const;
+const COMPLETE_STATUSES = ["FINALIZED", "CANCELED", "UNDETERMINED"] as const;
 const ACTIVE_STATUSES = [
   "PENDING",
   "PROPOSING",
@@ -62,8 +63,8 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
   );
 
   const update = useCallback(
-    (hash: StoredTransaction["hash"], status: TxStage) => {
-      persist(readTransactions().map((item) => (item.hash === hash ? { ...item, status } : item)));
+    (hash: StoredTransaction["hash"], status: TxStage, executionResult?: StoredTransaction["executionResult"], executionError?: string) => {
+      persist(readTransactions().map((item) => (item.hash === hash ? { ...item, status, executionResult, executionError } : item)));
     },
     [persist],
   );
@@ -84,7 +85,8 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
           try {
             const onchain = await client.getTransaction({ hash: tx.hash as TransactionHash });
             const status = String(onchain?.statusName ?? tx.status).toUpperCase() as TxStage;
-            return { ...tx, status };
+            const outcome = status === "FINALIZED" ? inspectGenVMExecution(onchain) : {};
+            return { ...tx, status, ...outcome };
           } catch {
             const created = Date.parse(tx.createdAt);
             if (!Number.isNaN(created) && Date.now() - created >= STALE_AFTER_MS) {

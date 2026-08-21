@@ -69,25 +69,30 @@ export async function getRebuttal(id: string): Promise<Rebuttal | undefined> {
 export async function isVetoed(
   governor: string,
   proposalId: string,
-): Promise<{ vetoed: boolean; review?: Review; known: boolean }> {
+): Promise<{ vetoed: boolean; review?: Review; known: boolean; unavailable: boolean; note: string }> {
   if (IS_LIVE) {
     const answer = await live.isVetoed(governor, proposalId);
-    const reviews = await live.listReviews();
-    const review = reviews.find(
-      (item) =>
-        item.governor.toLowerCase() === governor.toLowerCase() && item.proposal_id === proposalId,
-    );
+    if (!answer) return { vetoed: false, known: false, unavailable: true, note: "The contract read was unavailable; no judgment is implied." };
+    const review = answer.review_id ? await live.getReview(answer.review_id) : undefined;
     return {
-      vetoed: answer?.vetoed === true,
+      vetoed: answer.vetoed === true,
       review,
-      known: answer !== undefined,
+      known: answer.reviewed === true,
+      unavailable: false,
+      note: answer.note ?? "",
     };
   }
   const review = MOCK_REVIEWS.find(
     (item) =>
       item.governor.toLowerCase() === governor.toLowerCase() && item.proposal_id === proposalId,
   );
-  return { vetoed: Boolean(review?.veto_flag), review, known: true };
+  return {
+    vetoed: Boolean(review?.veto_flag),
+    review,
+    known: review !== undefined && review.status !== "PENDING",
+    unavailable: false,
+    note: review ? (review.status === "PENDING" ? "A review was requested but has not run." : "") : "No review is recorded for this governor and proposal.",
+  };
 }
 
 export async function ledgerCounts() {
