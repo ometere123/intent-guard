@@ -1,0 +1,136 @@
+{
+  "$comment": "Machine-readable record of the StudioNet proof run. Every hash here is full and unabbreviated, and every value was read back from the deployed contract on 2026-08-21 rather than transcribed from a console. Re-read any of it with `genlayer call <contract> <method>`.",
+  "network": "studionet",
+  "endpoint": "https://studio.genlayer.com/api",
+  "contract": "0x971406b8F8efFA474F19657d7e55549A17e2b157",
+  "recordedAt": "2026-08-21",
+  "signer": {
+    "alias": "termsmet-studionet-submitter",
+    "address": "0xb5ecd6dda36b370aca4af5e2005d8e2ae89c6db2",
+    "note": "Obtained through the CLI's own BaseAction/getClient path and the OS-keychain cache populated by `genlayer account unlock`. No key was exported, no wallet or keystore was created, and no password was supplied on a command line or written to a file."
+  },
+  "deployment": {
+    "transaction": "0x72153b5f2147fd36308324e9f64242e5b49fde8f28d735cb4d944874508e3f51",
+    "gitCommitAtDeployment": "dab05e6",
+    "sourcePath": "contracts/IntentGuard.py",
+    "contractSha256": "8a2e3f1e7773c44c2ea5b6a54feabb3ea081d3ec230ff23d29b6397cb608e9b3",
+    "deployedSourceVerified": true,
+    "parityProof": {
+      "method": "genlayer code 0x971406b8F8efFA474F19657d7e55549A17e2b157",
+      "retrievedOn": "2026-08-21",
+      "localBytes": 195759,
+      "deployedBytes": 195759,
+      "sha256Equal": true
+    }
+  },
+  "lifecycle": {
+    "reviewId": "IG-PROOF-1",
+    "governor": "0x408ed6354d4973f66138c91495f2f2fcbd8724c3",
+    "governorName": "Uniswap Governor Bravo",
+    "proposalId": 100,
+    "creationBlock": 25554834,
+    "transactions": [
+      {
+        "step": "request_review",
+        "hash": "0x40b50e6a7f7950250e111d5371afa1f3cc6f15fd731ba4405ea4aa94019c237f",
+        "kind": "payable write",
+        "valueWei": "1000000000000000",
+        "consensusStatus": "FINALIZED",
+        "genvmResult": "SUCCESS"
+      },
+      {
+        "step": "review",
+        "hash": "0x8f04f376045240d6be4ac83f31f3e4eda0bea82890aecc2e4bed60a23425dd46",
+        "kind": "consensus write",
+        "consensusStatus": "FINALIZED",
+        "genvmResult": "SUCCESS",
+        "validatorExecutions": { "success": 5, "error": 1 },
+        "errorsWereFatal": false,
+        "votes": ["DISAGREE", "AGREE", "AGREE", "IDLE", "AGREE"],
+        "note": "One DISAGREE, one IDLE and one non-fatal validator ERROR are recorded exactly as they occurred. The round still finalized and the leader's execution was SUCCESS; nothing here is smoothed over."
+      }
+    ]
+  },
+  "storedState": {
+    "$comment": "Read back with `genlayer call 0x971406b8F8efFA474F19657d7e55549A17e2b157 get_review --args IG-PROOF-1`.",
+    "get_review": {
+      "id": "IG-PROOF-1",
+      "status": "UNDERSPECIFIED",
+      "governor": "0x408ed6354d4973f66138c91495f2f2fcbd8724c3",
+      "proposal_id": "100",
+      "creation_block": "25554834",
+      "requester": "0xB5EcD6dDa36B370aca4af5E2005d8E2Ae89c6db2",
+      "mandate_title": "Activate v4 Protocol Fees (Part 1/2)",
+      "mandate_digest": "0x4fc50677e537180b70ead45b970ce8174b5b8a6d9ce96a3d22605c8ae57d5562",
+      "actions_digest": "0xab80c88729455dddc3e343fb10194a2440224d1241d5fab7ce7b002c6abc8853",
+      "action_count": "7",
+      "divergence_kind": "NONE",
+      "diverging_index": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "veto_flag": false,
+      "undecodable_gate": "",
+      "nondet_ops": "10",
+      "bond": "1000000000000000",
+      "bond_settled": true,
+      "bounty_paid": false,
+      "contested": false,
+      "rebuttal_id": "",
+      "rebuttal_deadline": "",
+      "rebuttable": false,
+      "rereviewable": true,
+      "reviewed_at": "2026-08-21T13:43:02.958723Z",
+      "override_vote_ref": ""
+    },
+    "get_actions": { "storedRows": 7 },
+    "is_vetoed": {
+      "args": ["0x408ed6354d4973f66138c91495f2f2fcbd8724c3", 100],
+      "reviewed": true,
+      "vetoed": false,
+      "status": "UNDERSPECIFIED",
+      "review_id": "IG-PROOF-1",
+      "divergence_kind": "NONE",
+      "override_vote_ref": "",
+      "note": "The mandate was too vague to authorise or exclude what the calls do."
+    },
+    "stats": {
+      "reviews": "1",
+      "rebuttals": "0",
+      "active_vetoes": "0",
+      "balance": "0",
+      "bounty_pool": "0",
+      "min_review_bond_wei": "1000000000000000",
+      "rebuttal_window_seconds": "604800",
+      "rereview_cooldown_seconds": "86400"
+    },
+    "balanceNote": "`balance` is 0 because the review settled and the 0.001 GEN bond was paid back to the requester. The contract holds no stranded value."
+  },
+  "verdict": {
+    "recorded": "UNDERSPECIFIED",
+    "wasForced": false,
+    "why": "Two of the seven actions could not be named: action #3 has selector 0x76ef8453 and action #4 carries an opaque nested payload with selector 0x00000000. The contract's own rule is that an otherwise-aligned proposal containing an opaque call is UNDERSPECIFIED, not ALIGNED, so the round declined to clear it and declined to veto it.",
+    "consequence": "This proves the PENDING -> UNDERSPECIFIED path with a real bond, real validators and a real mainnet proposal. It does not prove the veto path, because this proposal did not diverge. See notProvenOnChain."
+  },
+  "controls": [
+    {
+      "name": "stock-CLI payable control",
+      "observation": "The same request_review submitted through the unpatched `genlayer write` reached consensus status ACCEPTED while its GenVM execution reverted, and `stats.reviews` stayed 0.",
+      "why": "`genlayer write` hardcodes `value: 0n`, so the bond never arrived and the contract correctly refused the call. Recorded because it is the cleanest available demonstration that consensus status is not application success."
+    }
+  ],
+  "toolingNote": {
+    "limitation": "GenLayer CLI 0.39.2 `genlayer write` hardcodes `value: 0n` and has no option for `gl.message.value`. `--fee-value` is not it -- `parseTransactionFees` assigns that to the nested `fees.feeValue`, while application value is the top-level `value` parameter of `writeContract`.",
+    "resolution": "The two payable writes above were sent from a separate local clone of genlayer-cli at tag v0.39.2 with a one-field `--value-wei` addition that forwards the amount to the `value` parameter GenLayerJS already accepts. That clone is not part of this repository and no contract change was needed.",
+    "notAWorkaroundOn": "Signing. The patched clone uses the same BaseAction/getClient path and the same OS-keychain cache as the stock CLI."
+  },
+  "ci": {
+    "provider": "GitHub Actions",
+    "runId": "32491864422",
+    "commit": "aeaed0740ba9dad7d7da9999f6fd4544d83ceab5",
+    "os": "ubuntu-latest",
+    "conclusion": "success"
+  },
+  "notProvenOnChain": [
+    "The veto path. A veto needs a live mainnet proposal whose executable calls genuinely contradict its own published text, and the contract is not permitted to invent one. Covered instead by deterministic tests in tests/direct/test_lifecycle.py, which drive DIVERGENT rounds under mocked inference over ABI bytes the test file encodes itself.",
+    "The rebuttal and governance-override branches, for the same reason -- they can only be reached from a standing veto.",
+    "A public application URL. None is recorded in this repository."
+  ]
+}
