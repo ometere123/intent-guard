@@ -1,0 +1,419 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   Intent Guard — a facing-page interlinear scholarly apparatus.
+
+   Verso (left) carries the human mandate. Recto (right) carries the machine
+   calldata. Between them sits the apparatus gutter: 96px, the widest space on
+   the page, and the only place a connector thread is drawn.
+
+   Vermilion (--rubric) is manuscript rubrication. It appears on citations and
+   divergences and nowhere else. It measures 4.92:1 on the verso ground, so it
+   may carry body text.
+   ========================================================================== */
+
+@theme inline {
+  --color-verso: #e9e6df;
+  --color-recto: #dce2e6;
+  --color-ink: #1a1d21;
+  --color-rubric: #b4321e;
+  --color-thread: #7a8891;
+  --color-verified: #2f6b4f;
+
+  --font-display: var(--font-spectral), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-spectral), Georgia, "Times New Roman", serif;
+  --font-label: var(--font-spectral-sc), var(--font-spectral), Georgia, serif;
+  --font-calldata: var(--font-martian-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  --breakpoint-spread: 900px;
+}
+
+:root {
+  /* System-first release stack: no build-time dependency on a font CDN. */
+  --font-spectral: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-spectral-sc: "Palatino Linotype", Georgia, serif;
+  --font-martian-mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --verso: #e9e6df;
+  --recto: #dce2e6;
+  --ink: #1a1d21;
+  --rubric: #b4321e;
+  --thread: #7a8891;
+  --verified: #2f6b4f;
+
+  /* The apparatus gutter. The widest space on the page, deliberately. */
+  --gutter: 96px;
+
+  --rule: color-mix(in srgb, var(--ink) 14%, transparent);
+  --rule-strong: color-mix(in srgb, var(--ink) 28%, transparent);
+  --ink-70: color-mix(in srgb, var(--ink) 70%, transparent);
+  --ink-55: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+@media (max-width: 899px) {
+  :root {
+    --gutter: 0px;
+  }
+}
+
+* {
+  border-color: var(--rule);
+}
+
+html {
+  background: var(--verso);
+  color: var(--ink);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--verso);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 28px;
+  font-weight: 400;
+  font-variant-numeric: oldstyle-nums;
+}
+
+/* --------------------------------------------------------------------------
+   Type scale: 11 · 13 · 16 · 20 · 32. Nothing else.
+   -------------------------------------------------------------------------- */
+
+.ig-display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 32px;
+  line-height: 38px;
+  letter-spacing: -0.01em;
+}
+
+.ig-heading {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.ig-body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 28px;
+}
+
+.ig-aside {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 22px;
+}
+
+.ig-calldata {
+  font-family: var(--font-calldata);
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 22px;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.ig-calldata-sm {
+  font-family: var(--font-calldata);
+  font-weight: 400;
+  font-size: 11px;
+  line-height: 18px;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.ig-label {
+  font-family: var(--font-label);
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 12px;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  font-variant: small-caps;
+  color: var(--ink-70);
+}
+
+.ig-label-ink {
+  color: var(--ink);
+}
+
+.ig-rubric {
+  color: var(--rubric);
+}
+
+.ig-verified {
+  color: var(--verified);
+}
+
+/* --------------------------------------------------------------------------
+   Grounds. Verso is warm paper; recto is the cooler leaf facing it. The fold
+   between them is a gradient, not a border — a bound gathering, not a table.
+   -------------------------------------------------------------------------- */
+
+.ig-verso {
+  background: var(--verso);
+}
+
+.ig-recto {
+  background: var(--recto);
+}
+
+.ig-fold {
+  background-image: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--ink) 0%, transparent) 0%,
+    color-mix(in srgb, var(--ink) 7%, transparent) 38%,
+    color-mix(in srgb, var(--ink) 12%, transparent) 50%,
+    color-mix(in srgb, var(--ink) 7%, transparent) 62%,
+    color-mix(in srgb, var(--ink) 0%, transparent) 100%
+  );
+}
+
+/* Rules are hairlines at any density. */
+.ig-rule {
+  border-top: 1px solid var(--rule);
+}
+
+.ig-rule-strong {
+  border-top: 1px solid var(--rule-strong);
+}
+
+/* --------------------------------------------------------------------------
+   Focus. The system's own ink, never a browser default outline.
+   -------------------------------------------------------------------------- */
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 1px;
+}
+
+.ig-skip {
+  position: absolute;
+  left: 16px;
+  top: -64px;
+  z-index: 60;
+  background: var(--verso);
+  border: 1px solid var(--ink);
+  padding: 10px 16px;
+  transition: top 120ms ease-out;
+}
+
+.ig-skip:focus {
+  top: 16px;
+}
+
+/* --------------------------------------------------------------------------
+   Connector threads. Drawn in sequence, 120ms each, in document order. A
+   thread that breaks flashes vermilion once at the exact argument. There is
+   no celebration on agreement.
+   -------------------------------------------------------------------------- */
+
+.ig-thread {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: ig-draw 320ms ease-out forwards;
+  animation-delay: calc(var(--thread-order, 0) * 120ms);
+}
+
+@keyframes ig-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.ig-thread-break {
+  opacity: 0;
+  animation: ig-break-flash 640ms ease-out forwards;
+  animation-delay: calc(var(--thread-order, 0) * 120ms + 320ms);
+}
+
+@keyframes ig-break-flash {
+  0% {
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  42% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* An anchor a thread lands on, when its sentence has focus. */
+[data-thread-active="true"] {
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+[data-thread-active="true"][data-thread-kind="broken"],
+[data-thread-active="true"][data-thread-kind="absent"] {
+  box-shadow: inset 2px 0 0 var(--rubric);
+}
+
+/* --------------------------------------------------------------------------
+   Lifecycle. The active stage pulses slowly; it never spins.
+   -------------------------------------------------------------------------- */
+
+.ig-stage-active {
+  animation: ig-breathe 2600ms ease-in-out infinite;
+}
+
+@keyframes ig-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Marginalia: the mandate prose column, set for reading.
+   -------------------------------------------------------------------------- */
+
+.ig-prose > * + * {
+  margin-top: 16px;
+}
+
+.ig-prose h1,
+.ig-prose h2,
+.ig-prose h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.ig-prose h1 {
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.ig-prose h2,
+.ig-prose h3 {
+  font-size: 16px;
+  line-height: 28px;
+}
+
+.ig-prose code {
+  font-family: var(--font-calldata);
+  font-size: 13px;
+  letter-spacing: -0.02em;
+}
+
+/* --------------------------------------------------------------------------
+   Controls. Letterpress, not chrome: a rule, a ground, and small caps. No
+   rounded corners, no gradients, no shadow on rest.
+   -------------------------------------------------------------------------- */
+
+.ig-btn,
+.ig-btn-quiet,
+.ig-btn-rubric {
+  font-family: var(--font-label);
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 12px;
+  letter-spacing: 0.06em;
+  font-variant: small-caps;
+  text-transform: lowercase;
+  padding: 11px 16px;
+  border: 1px solid var(--ink);
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 120ms ease-out, color 120ms ease-out;
+}
+
+.ig-btn {
+  background: var(--ink);
+  color: var(--verso);
+}
+
+.ig-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 84%, var(--verso));
+}
+
+.ig-btn-quiet {
+  border-color: var(--rule-strong);
+}
+
+.ig-btn-quiet:hover:not(:disabled) {
+  border-color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.ig-btn-rubric {
+  border-color: var(--rubric);
+  color: var(--rubric);
+}
+
+.ig-btn-rubric:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--rubric) 8%, transparent);
+}
+
+.ig-btn:disabled,
+.ig-btn-quiet:disabled,
+.ig-btn-rubric:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.ig-input,
+.ig-select,
+.ig-textarea {
+  width: 100%;
+  background: color-mix(in srgb, var(--verso) 60%, #fff);
+  border: 1px solid var(--rule-strong);
+  padding: 9px 10px;
+  color: var(--ink);
+  font-family: var(--font-calldata);
+  font-size: 13px;
+  line-height: 22px;
+  letter-spacing: -0.02em;
+}
+
+.ig-select {
+  font-family: var(--font-body);
+  letter-spacing: normal;
+  font-size: 16px;
+}
+
+.ig-textarea {
+  min-height: 7rem;
+  resize: vertical;
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion. Threads appear already drawn; nothing pulses.
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .ig-thread,
+  .ig-thread-break,
+  .ig-stage-active {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+    opacity: 1 !important;
+  }
+
+  .ig-skip {
+    transition: none;
+  }
+
+  * {
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Selection reads as annotation, not as a UI highlight. */
+::selection {
+  background: color-mix(in srgb, var(--rubric) 18%, transparent);
+  color: var(--ink);
+}
