@@ -12,5 +12,6 @@ yarn-error.log*
 next-env.d.ts
 artifacts
 tsconfig.tsbuildinfo
+.pytest_cache/
 __pycache__/
 *.py[cod]
