@@ -19,7 +19,7 @@ Every hash below is full and unabbreviated. Every stored value was read back fro
 | Decoder parity/drift guard | PASS | In-repo corpus executes the embedded decoder and checks `decoder_fingerprint()`. |
 | ACCEPTED restoration | PASS | Persisted `ACCEPTED` remains active, resumes polling, and never counts as application success. |
 | Live-read failure semantics | PASS | Empty/not-found remain distinct from unavailable/malformed reads across ledger, detail and guard surfaces. |
-| Linux CI | PASS | GitHub Actions run `32491864422` on commit `aeaed0740ba9dad7d7da9999f6fd4544d83ceab5`, `ubuntu-latest`, conclusion `success`. |
+| Linux CI | PASS | GitHub Actions run `32508763523` on commit `0b07fa471edc4f37a3085d9bf44bf058cbaed11b`, `ubuntu-latest`, conclusion `success`; its `npm ci` step reports `found 0 vulnerabilities`. CI runs on every push, so later commits have their own runs. |
 | TypeScript | PASS | `tsc --noEmit`. |
 | ESLint | PASS | `eslint .`. |
 | Production build | PASS | `next build`. |
@@ -109,7 +109,7 @@ Both CI installs reported 3 high-severity findings. They were real and they were
 
 All three were transitive through one direct dependency, `next 16.2.12`, and npm's own recommended remedy was `next@16.3.2`. That upgrade was applied deliberately — `npm install next@16.3.2 --save-exact`, reviewed, not `npm audit fix --force` — because `--force` is documented to install outside the stated dependency range and would have been an unreviewed change to the framework version in a submission build.
 
-After the bump: `postcss` resolves to `8.5.23` and `sharp` to `0.35.3`, both outside their advisory ranges. `npm audit` and `npm audit --omit=dev` both report **0 vulnerabilities**. Neither app imports `next/image`, so the `sharp` code path was never reachable at runtime in the first place, but it is now on a fixed version regardless rather than being argued away. `npm run verify` passes end to end on the new lockfile.
+After the bump: `postcss` resolves to `8.5.23` and `sharp` to `0.35.3`, both outside their advisory ranges. `npm audit` and `npm audit --omit=dev` both report **0 vulnerabilities**, and CI confirms it independently — the `npm ci` step of run `32508763523` prints `found 0 vulnerabilities` where the earlier runs printed 3 high. Neither app imports `next/image`, so the `sharp` code path was never reachable at runtime in the first place, but it is now on a fixed version regardless rather than being argued away. `npm run verify` passes end to end on the new lockfile.
 
 ## Reproduction
 

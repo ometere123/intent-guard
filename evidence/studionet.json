@@ -123,10 +123,12 @@
   },
   "ci": {
     "provider": "GitHub Actions",
-    "runId": "32491864422",
-    "commit": "aeaed0740ba9dad7d7da9999f6fd4544d83ceab5",
+    "runId": "32508763523",
+    "commit": "0b07fa471edc4f37a3085d9bf44bf058cbaed11b",
     "os": "ubuntu-latest",
-    "conclusion": "success"
+    "conclusion": "success",
+    "npmCiAudit": "found 0 vulnerabilities",
+    "note": "CI runs on every push, so commits after the one named here have their own runs. This run is recorded because its npm ci step is the first to report 0 vulnerabilities in place of the 3 high-severity findings."
   },
   "notProvenOnChain": [
     "The veto path. A veto needs a live mainnet proposal whose executable calls genuinely contradict its own published text, and the contract is not permitted to invent one. Covered instead by deterministic tests in tests/direct/test_lifecycle.py, which drive DIVERGENT rounds under mocked inference over ABI bytes the test file encodes itself.",
