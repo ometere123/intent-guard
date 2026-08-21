@@ -19,6 +19,18 @@ jobs:
       - run: npm ci
       - run: python -m pip install genlayer-test==0.29.2
       - run: python -m pip install genvm-linter==0.11.0
+      # gltest 0.29.2 picks its GenVM SDK by preferring whatever is already in
+      # ~/.cache/gltest-direct and only falling back to the newest genvm
+      # release. It always fetches one fixed asset name, genvm-universal.tar.xz,
+      # which releases after v0.2.16 stopped publishing -- so on a cold runner
+      # the fallback 404s. Seeding the cache with the last release that does
+      # publish that asset pins resolution to the same SDK the direct tests are
+      # developed against locally, instead of leaving it to float.
+      - name: Seed GenVM SDK cache (pins gltest to genvm v0.2.16)
+        run: |
+          mkdir -p ~/.cache/gltest-direct
+          curl -fsSL --retry 3 -o ~/.cache/gltest-direct/genvm-universal-v0.2.16.tar.xz \
+            https://github.com/genlayerlabs/genvm/releases/download/v0.2.16/genvm-universal.tar.xz
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
