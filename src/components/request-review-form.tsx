@@ -83,7 +83,7 @@ export function RequestReviewForm() {
           <select className="ig-select" value={governor} onChange={(e) => setGovernor(e.target.value)}>
             {GOVERNORS.map((item) => (
               <option key={item.address} value={item.address}>
-                {item.label} {item.supported ? "" : "— adapter not shipped"}
+                {item.label} {item.supported ? "" : "(adapter not shipped)"}
               </option>
             ))}
           </select>

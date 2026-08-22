@@ -65,7 +65,8 @@ function classify(message: string): OutcomeClass {
 function writeErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes("does not support") || message.includes("Unsupported method")) {
-    return `${message} — some injected wallets do not implement the GenLayer RPC methods. A wallet that speaks them is required to sign this call.`;
+    const stated = message.replace(/[\s.]+$/, "");
+    return `${stated}. Some injected wallets do not implement the GenLayer RPC methods. A wallet that speaks them is required to sign this call.`;
   }
   return message;
 }

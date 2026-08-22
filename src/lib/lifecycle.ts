@@ -91,7 +91,7 @@ export const REVIEW_PROGRAM: ProgramStep[] = [
     key: "fetching-actions",
     label: "fetching actions",
     detail:
-      "The Governor's getActions(uint256) — selector 0x328dd982 — is read from two independent explorers, so no single provider can decide what the proposal contains.",
+      "The Governor's getActions(uint256), selector 0x328dd982, is read from two independent explorers, so no single provider can decide what the proposal contains.",
     source: "two independent explorers · eth_call",
     kind: "network",
   },
@@ -99,7 +99,7 @@ export const REVIEW_PROGRAM: ProgramStep[] = [
     key: "corroborating",
     label: "corroborating",
     detail:
-      "Both action sets are canonicalised and hashed. The hashes must be equal. If they are not, the round refuses with UNDECODABLE and no inference is spent — no judgment is ever made on data that has not first been corroborated.",
+      "Both action sets are canonicalised and hashed. The hashes must be equal. If they are not, the round refuses with UNDECODABLE and no inference is spent. No judgment is ever made on data that has not first been corroborated.",
     source: "byte comparison in the contract",
     kind: "deterministic",
   },
@@ -107,15 +107,15 @@ export const REVIEW_PROGRAM: ProgramStep[] = [
     key: "decoding",
     label: "decoding",
     detail:
-      "ABI decode: offsets, lengths, dynamic arrays, nested bytes to depth two. Each 4-byte selector is looked up and then verified by hashing — keccak256(text_signature)[:4] must equal the selector, or the signature is discarded and the action is treated as opaque.",
-    source: "4byte.directory, verified by keccak — deterministic, no inference",
+      "ABI decode: offsets, lengths, dynamic arrays, nested bytes to depth two. Each 4-byte selector is looked up and then verified by hashing: keccak256(text_signature)[:4] must equal the selector, or the signature is discarded and the action is treated as opaque.",
+    source: "4byte.directory, verified by keccak. Deterministic, no inference",
     kind: "deterministic",
   },
   {
     key: "consensus-running",
     label: "scope correspondence",
     detail:
-      "Only now does a model see anything, and what it sees is the decoded, selector-verified, corroborated action list — never raw calldata hex. It is asked one question: does the mandate authorise that? The answer is then re-checked deterministically, and a named index outside the action set is rejected as an error rather than written as a veto.",
+      "Only now does a model see anything, and what it sees is the decoded, selector-verified, corroborated action list, never raw calldata hex. It is asked one question: does the mandate authorise that? The answer is then re-checked deterministically, and a named index outside the action set is rejected as an error rather than written as a veto.",
     source: "validator inference",
     kind: "inference",
   },
@@ -159,7 +159,7 @@ export const OUTCOMES: Record<Exclude<OutcomeClass, "verdict">, Outcome> = {
   transient: {
     tag: "[TRANSIENT]",
     headline: "A retryable consensus state, not a failure.",
-    body: "Validators did not reach a determination within the round — a timeout, or an undetermined outcome. The round judged nothing and wrote nothing. It may simply be re-run.",
+    body: "Validators did not reach a determination within the round, either a timeout or an undetermined outcome. The round judged nothing and wrote nothing. It may simply be re-run.",
     ledger: "Bond untouched. Nothing was decided in either direction.",
     retry: true,
   },

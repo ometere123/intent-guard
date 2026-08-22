@@ -76,7 +76,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
                   ? "veto flag not set"
                   : "no veto"}
           </p>
-          <p className="ig-label">reviewed {displayTime(review.reviewed_at) || "—"}</p>
+          <p className="ig-label">reviewed {displayTime(review.reviewed_at)}</p>
         </div>
         <p className="ig-body max-w-[68ch]">{status.meaning}</p>
         <p className="ig-aside max-w-[68ch] opacity-85">{status.limit}</p>
@@ -152,10 +152,10 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
               <ApparatusLegend model={model} />
               {!model.mandateTextAvailable ? (
                 <p className="ig-aside max-w-[74ch] pl-3" style={{ borderLeft: "3px solid var(--thread)" }}>
-                  The contract records the mandate by digest and title, not as prose — 7,141 bytes of
+                  The contract records the mandate by digest and title rather than as prose, because 7,141 bytes of
                   markdown do not belong in contract storage. The verso therefore carries clause
                   anchors rather than quotations. The full description lives in the governor&apos;s
-                  ProposalCreated log at block {review.creation_block || "—"}.
+                  ProposalCreated log{review.creation_block ? ` at block ${review.creation_block}` : ""}.
                 </p>
               ) : null}
             </div>
@@ -297,14 +297,14 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
                 {review.creation_block}
               </a>
             ) : (
-              "—"
+              "not recorded"
             )}
           </Field>
           <Field label="requester">{review.requester}</Field>
           <Field label="bond">{formatGen(review.bond)} GEN</Field>
           <Field label="action count">{review.action_count}</Field>
-          <Field label="mandate digest">{review.mandate_digest || "—"}</Field>
-          <Field label="actions digest">{review.actions_digest || "—"}</Field>
+          <Field label="mandate digest">{review.mandate_digest || "not recorded"}</Field>
+          <Field label="actions digest">{review.actions_digest || "not recorded"}</Field>
         </dl>
         <p className="ig-aside max-w-[74ch]">
           Both digests are what makes this record auditable. The mandate digest pins the exact text

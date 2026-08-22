@@ -187,7 +187,7 @@ export const MOCK_REVIEWS: Review[] = [
     diverging_index: "0",
     divergence_kind: "PARAM_MISMATCH",
     rationale:
-      "The mandate states 10 basis points, twice, and describes the change as one tenth of one percent. The decoded argument newReserveFactorMantissa is 1000. In a function scaled to 1e4, 1000 is 10 percent, not 10 basis points — a factor of one hundred. The function and the market are the ones the mandate names; only the magnitude diverges.",
+      "The mandate states 10 basis points, twice, and describes the change as one tenth of one percent. The decoded argument newReserveFactorMantissa is 1000. In a function scaled to 1e4, 1000 is 10 percent, not 10 basis points, which is a factor of one hundred. The function and the market are the ones the mandate names; only the magnitude diverges.",
     veto_flag: true,
     reviewed_at: "2026-08-02T14:27:36Z",
     override_vote_ref: "",

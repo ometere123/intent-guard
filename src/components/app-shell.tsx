@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { WalletPlate } from "@/components/wallet-control";
+import { Logo } from "@/components/logo";
 import { TransactionRail } from "@/components/transaction-rail";
 import { CHAIN_NAME } from "@/lib/genlayer/config";
 import { dataProvenance } from "@/lib/genlayer/data-source";
@@ -27,7 +28,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="ig-verso sticky top-0 z-40 border-b border-[var(--rule)] backdrop-blur-[2px]">
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-baseline gap-x-6 gap-y-2 px-4 py-3 sm:px-8">
           <Link href="/" className="ig-heading shrink-0 no-underline">
-            Intent&nbsp;Guard
+            <Logo />
+            <span className="ml-2">Intent&nbsp;Guard</span>
           </Link>
           <p className="ig-label hidden shrink-0 md:block">
             do these bytes do what that text said?
@@ -92,7 +94,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <footer className="ig-rule mx-auto mt-16 max-w-[1400px] px-4 py-8 sm:px-8">
         <p className="ig-aside max-w-[62ch]">
           Intent Guard raises objections. It never decides. A veto flag is a finding a timelock
-          guard may honour and a fresh governance vote clears — see{" "}
+          guard may honour and a fresh governance vote clears. See{" "}
           <Link href="/docs" className="underline decoration-1 underline-offset-4">
             the override rule
           </Link>

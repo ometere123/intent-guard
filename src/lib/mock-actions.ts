@@ -358,7 +358,7 @@ export const MOCK_ACTIONS: Record<string, DecodedAction[]> = {
       signature: "",
       resolved: false,
       ...NO_NEST,
-      arg_summary: "unresolved selector — arguments not decoded",
+      arg_summary: "unresolved selector, arguments not decoded",
     },
   ],
   "IG-COMP-231": [],

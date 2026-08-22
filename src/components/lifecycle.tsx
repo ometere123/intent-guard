@@ -151,8 +151,8 @@ export function OutcomePanel({
       ) : null}
       {copy.retry ? (
         <p className="ig-aside mt-3">
-          This is safe to retry. Nothing was written, so a second attempt is not a second opinion —
-          it is a first one.
+          This is safe to retry. Nothing was written, so a second attempt is not a second opinion.
+          It is a first one.
         </p>
       ) : null}
     </div>

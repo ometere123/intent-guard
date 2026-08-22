@@ -37,7 +37,7 @@ export function formatCount(value: string | undefined): string {
 }
 
 export function shortenHex(value: string | undefined, head = 6, tail = 4): string {
-  if (!value) return "—";
+  if (!value) return "not recorded";
   const trimmed = value.trim();
   if (trimmed.length <= head + tail + 2) return trimmed;
   return `${trimmed.slice(0, head)}…${trimmed.slice(-tail)}`;

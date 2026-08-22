@@ -118,7 +118,7 @@ export function Apparatus({
       >
         <section className="ig-verso pr-2" aria-labelledby="verso-head">
           <h2 id="verso-head" className="ig-label mb-4">
-            verso — the mandate
+            verso: the mandate
           </h2>
           <ol className="flex flex-col gap-5">
             {model.clauses.map((clause) => (
@@ -141,7 +141,7 @@ export function Apparatus({
                 <p className="ig-body">{clause.text}</p>
                 <p className="ig-label mt-1">
                   {clause.resolvedCites.length === 0 ? (
-                    "prose only — authorises no action"
+                    "prose only, authorises no action"
                   ) : (
                     <>
                       authorises{" "}
@@ -204,7 +204,7 @@ export function Apparatus({
 
         <section className="ig-recto pl-2" aria-labelledby="recto-head">
           <h2 id="recto-head" className="ig-label mb-4">
-            recto — the execution
+            recto: the execution
           </h2>
           <ol className="flex flex-col gap-5">
             {model.actions.map((entry) => (
@@ -284,7 +284,7 @@ export function ApparatusLegend({ model }: { model: ApparatusModel }) {
   const items: [string, string, string][] = [
     ["intact", "var(--thread)", "a clause cites this action and the verdict does not fault it"],
     ["broken", "var(--rubric)", "cited, and either faulted or its selector never verified"],
-    ["absent", "transparent", "no clause cites it — there is no thread, and that is the finding"],
+    ["absent", "transparent", "no clause cites it, so there is no thread, and that is the finding"],
   ];
   const present = new Set<ApparatusAction["thread"]>(model.actions.map((entry) => entry.thread));
   return (

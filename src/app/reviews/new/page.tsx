@@ -18,7 +18,7 @@ export default function NewReviewPage() {
         </h1>
         <p className="ig-body max-w-[72ch]">
           Requesting a review records the proposal and holds a bond. It runs no consensus and reads
-          no explorer — it only validates. The review itself is permissionless: once a record
+          no explorer. It only validates. The review itself is permissionless: once a record
           exists, anybody may run it, so nobody has to be trusted to run it.
         </p>
       </header>

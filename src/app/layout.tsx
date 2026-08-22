@@ -10,7 +10,6 @@ export const metadata: Metadata = {
   },
   description:
     "Do these bytes do what that text said? Intent Guard reads a governance proposal's mandate and its decoded calldata side by side, and raises an objection when they diverge.",
-  icons: { icon: "/favicon.svg" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

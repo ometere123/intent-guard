@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Ledger",
   description:
-    "Every review Intent Guard has recorded, by governor, verdict and veto state — including the refusals.",
+    "Every review Intent Guard has recorded, by governor, verdict and veto state, including the refusals.",
 };
 
 export default async function ReviewsPage() {

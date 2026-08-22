@@ -37,7 +37,7 @@ export function ReviewActions({
           return `${governor.label} uses an adapter that is not shipped yet. Unknown governors are refused rather than guessed at.`;
         }
         if (functionName === "review" && review.status !== "PENDING") {
-          return `This review is already ${review.status.toLowerCase()}. review() only runs on a pending record — use rereview() to run it again against current chain state.`;
+          return `This review is already ${review.status.toLowerCase()}. review() only runs on a pending record. Use rereview() to run it again against current chain state.`;
         }
         if (functionName === "rereview" && review.status === "PENDING") {
           return "Nothing has been reviewed yet, so there is nothing to re-run. Use review().";
@@ -83,7 +83,7 @@ export function ReviewActions({
           onClick={() => {
             setShowProgram(false);
             run({
-              label: `adjudicate_rebuttal(${openRebuttal?.id ?? "—"})`,
+              label: `adjudicate_rebuttal(${openRebuttal?.id ?? "none"})`,
               functionName: "adjudicate_rebuttal",
               args: [openRebuttal?.id ?? ""],
               reviewId: review.id,
@@ -113,7 +113,7 @@ export function ReviewActions({
         <p className="ig-body mt-2 max-w-[70ch]">
           A veto that a DAO cannot override is not a safety mechanism, it is a new unelected
           veto-holder. Recording a fresh governance vote here clears the flag. This call is
-          deliberately not a consensus call — governance overrides the machine, never the reverse.
+          deliberately not a consensus call, because governance overrides the machine and never the reverse.
         </p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row">
           <label className="sr-only" htmlFor="vote-ref">

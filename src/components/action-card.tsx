@@ -167,7 +167,7 @@ export function ActionCard({
         <div className="ig-rule mt-2 pt-2">
           <p className="ig-label mb-1">decoded arguments</p>
           {rows.map((row, index) => (
-            <Row key={`${row.name}-${index}`} label={row.name || "—"} marked={marked.has(row.name)}>
+            <Row key={`${row.name}-${index}`} label={row.name || "unnamed"} marked={marked.has(row.name)}>
               {row.value}
               {marked.has(row.name) ? (
                 <span className="ig-calldata-sm ig-rubric ml-3" aria-hidden>

@@ -84,7 +84,7 @@ export function ReviewIndexClient({ reviews }: { reviews: Review[] }) {
 
       {filtered.length === 0 ? (
         <p className="ig-body max-w-[64ch]">
-          No record matches those filters. The ledger is not empty — the filters are narrow.
+          No record matches those filters. The ledger is not empty. The filters are narrow.
         </p>
       ) : (
         <ol className="divide-y divide-[var(--rule)] border-y border-[var(--rule)]">

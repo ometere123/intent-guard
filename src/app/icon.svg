@@ -1,0 +1,20 @@
+<!--
+  The obelus, the sign an editor puts in the margin against a passage judged not
+  to belong, standing beside a three-line passage. That is the entire output of
+  this contract: a mandate, marked where its calldata diverges from it. Rubric
+  red is reserved for citations and divergences in this app, so the mark is the
+  only red thing on a page until a divergence is found.
+
+  Every coordinate is even and every stroke is 4 wide, so the whole figure halves
+  onto whole pixels at 16px. An earlier draft sat on half-pixels: the crossbar
+  antialiased away entirely at favicon size and the three rules came out at
+  visibly different weights.
+
+  Hex is literal rather than var(): a file served as a static asset has no access
+  to the app's stylesheet.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" fill="#e9e6df" />
+  <path d="M4 8h12M4 16h12M4 24h8" stroke="#1a1d21" stroke-width="4" />
+  <path d="M24 4v24M18 12h12" stroke="#b4321e" stroke-width="4" />
+</svg>

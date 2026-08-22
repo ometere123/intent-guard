@@ -118,7 +118,7 @@ function synthesiseClauses(
     .map(({ index }, ordinal) => ({
       ordinal,
       text:
-        `Clause anchor. The mandate recorded under digest ${review.mandate_digest || "—"} was found to ` +
+        `Clause anchor. The mandate recorded under digest ${review.mandate_digest || "not recorded"} was found to ` +
         `authorise action ${index + 1}. The full description is not stored on chain; this anchor stands in its place.`,
       cites: [index],
     }));
