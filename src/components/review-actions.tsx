@@ -13,7 +13,7 @@ export function ReviewActions({
   review: Review;
   rebuttals: Rebuttal[];
 }) {
-  const { state, run, reset, connected } = useWriteRunner();
+  const { state, run, reset, walletGate } = useWriteRunner();
   const [voteRef, setVoteRef] = useState("");
   const [showProgram, setShowProgram] = useState(false);
 
@@ -29,7 +29,7 @@ export function ReviewActions({
       args: [review.id],
       reviewId: review.id,
       preflight: () => {
-        if (!connected) return "Connect a wallet first. Running a review is a write.";
+        if (walletGate) return `${walletGate} Running a review is a write.`;
         if (!governor) {
           return `${review.governor} is not in the adapter registry. The contract would revert this before reading anything, so it is refused here for free.`;
         }
@@ -88,7 +88,7 @@ export function ReviewActions({
               args: [openRebuttal?.id ?? ""],
               reviewId: review.id,
               preflight: () => {
-                if (!connected) return "Connect a wallet first. Adjudicating is a write.";
+                if (walletGate) return `${walletGate} Adjudicating is a write.`;
                 if (!openRebuttal) {
                   return "There is no open rebuttal on this review, so there is nothing to adjudicate.";
                 }
@@ -138,7 +138,7 @@ export function ReviewActions({
                 args: [review.id, voteRef.trim()],
                 reviewId: review.id,
                 preflight: () => {
-                  if (!connected) return "Connect a wallet first. Clearing a veto is a write.";
+                  if (walletGate) return `${walletGate} Clearing a veto is a write.`;
                   if (!review.veto_flag) {
                     return "No veto flag is set on this review, so there is nothing to clear.";
                   }

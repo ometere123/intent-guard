@@ -57,11 +57,15 @@ function classify(message: string): OutcomeClass {
   return "expected";
 }
 
-/** The injected-wallet hint rainline learned the hard way; kept verbatim in spirit. */
+/**
+ * Wallet errors are passed through verbatim, with one addition: an unsupported-method
+ * failure is the wallet's own limitation rather than a mistake by the person clicking,
+ * and saying so is the difference between a dead end and a next step.
+ */
 function writeErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes("does not support") || message.includes("Unsupported method")) {
-    return `${message} — some injected wallets do not implement the GenLayer RPC methods. A browser wallet from the signing panel will work.`;
+    return `${message} — some injected wallets do not implement the GenLayer RPC methods. A wallet that speaks them is required to sign this call.`;
   }
   return message;
 }
@@ -140,5 +144,21 @@ export function useWriteRunner() {
     [track, update, wallet],
   );
 
-  return { state, run, reset, connected: wallet.mode !== "none" };
+  return {
+    state,
+    run,
+    reset,
+    /**
+     * The lead sentence of a refusal when a write is attempted with no signer.
+     * "Connect a wallet first" is only useful advice when there is a wallet to
+     * connect, so a browser with no extension at all is told that instead.
+     * Null once a session is open, which is what the call sites test.
+     */
+    walletGate:
+      wallet.mode !== "none"
+        ? null
+        : wallet.hasInjected
+          ? "Connect a wallet first."
+          : "No wallet extension was detected in this browser, so there is nothing to sign with.",
+  };
 }

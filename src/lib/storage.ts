@@ -6,8 +6,10 @@
 import type { StoredTransaction } from "./contract-types";
 
 const TX_KEY = "intent-guard.transactions.v1";
-const GENERATED_KEY = "intent-guard.generated-wallet.v1";
-const ACK_KEY = "intent-guard.generated-wallet-ack.v1";
+
+/** Written by the generated-wallet build this replaced. Only ever removed now. */
+const LEGACY_GENERATED_KEY = "intent-guard.generated-wallet.v1";
+const LEGACY_ACK_KEY = "intent-guard.generated-wallet-ack.v1";
 
 export function readTransactions(): StoredTransaction[] {
   if (typeof localStorage === "undefined") return [];
@@ -23,22 +25,14 @@ export function writeTransactions(items: StoredTransaction[]) {
   localStorage.setItem(TX_KEY, JSON.stringify(items.slice(0, 24)));
 }
 
-export function readGeneratedKey(): `0x${string}` | null {
-  if (typeof localStorage === "undefined") return null;
-  return localStorage.getItem(GENERATED_KEY) as `0x${string}` | null;
-}
-
-export function writeGeneratedKey(key: `0x${string}`) {
+/**
+ * An earlier build offered a browser-generated signing key held in localStorage.
+ * An injected wallet is the only signer now, but removing the feature is not a
+ * reason to leave a plaintext private key behind in a browser that used it, so
+ * the wallet provider calls this once on mount.
+ */
+export function purgeLegacyGeneratedKey() {
   if (typeof localStorage === "undefined") return;
-  localStorage.setItem(GENERATED_KEY, key);
-}
-
-export function hasAcknowledgedGeneratedWallet(): boolean {
-  if (typeof localStorage === "undefined") return false;
-  return localStorage.getItem(ACK_KEY) === "yes";
-}
-
-export function acknowledgeGeneratedWallet() {
-  if (typeof localStorage === "undefined") return;
-  localStorage.setItem(ACK_KEY, "yes");
+  localStorage.removeItem(LEGACY_GENERATED_KEY);
+  localStorage.removeItem(LEGACY_ACK_KEY);
 }

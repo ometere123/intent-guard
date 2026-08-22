@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { WalletPlate } from "@/components/wallet-panel";
+import { WalletPlate } from "@/components/wallet-control";
 import { TransactionRail } from "@/components/transaction-rail";
 import { CHAIN_NAME } from "@/lib/genlayer/config";
 import { dataProvenance } from "@/lib/genlayer/data-source";

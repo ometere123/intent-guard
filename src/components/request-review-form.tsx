@@ -11,7 +11,7 @@ const PLAUSIBLE_BLOCK_MIN = 10_000_000n;
 const PLAUSIBLE_BLOCK_MAX = 40_000_000n;
 
 export function RequestReviewForm() {
-  const { state, run, reset, connected } = useWriteRunner();
+  const { state, run, reset, walletGate } = useWriteRunner();
   const [id, setId] = useState("");
   const [governor, setGovernor] = useState(GOVERNORS[0]?.address ?? "");
   const [proposalId, setProposalId] = useState("");
@@ -22,7 +22,7 @@ export function RequestReviewForm() {
   const busy = state.phase !== "idle";
 
   function preflight(): string | null {
-    if (!connected) return "Connect a wallet first. Requesting a review is a payable write.";
+    if (walletGate) return `${walletGate} Requesting a review is a payable write.`;
     if (!/^[A-Za-z0-9-]{3,40}$/.test(id.trim())) {
       return "A review id is 3 to 40 characters of letters, digits and hyphens. It is the record's primary key, so it has to be stable.";
     }

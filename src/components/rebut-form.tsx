@@ -7,7 +7,7 @@ import { useWriteRunner } from "@/components/write-runner";
 import { Lifecycle } from "@/components/lifecycle";
 
 export function RebutForm({ review, hasOpen }: { review: Review; hasOpen: boolean }) {
-  const { state, run, reset, connected } = useWriteRunner();
+  const { state, run, reset, walletGate } = useWriteRunner();
   const [rebuttalId, setRebuttalId] = useState(`${review.id}-REB-1`);
   const [url, setUrl] = useState("");
   const busy = state.phase !== "idle";
@@ -26,7 +26,7 @@ export function RebutForm({ review, hasOpen }: { review: Review; hasOpen: boolea
             value: BigInt(review.bond || "0"),
             reviewId: review.id,
             preflight: () => {
-              if (!connected) return "Connect a wallet first. A rebuttal is a payable write.";
+              if (walletGate) return `${walletGate} A rebuttal is a payable write.`;
               if (review.status !== "DIVERGENT") {
                 return `A rebuttal answers a divergence. This review is ${review.status.toLowerCase()}, so there is no finding to answer and the contract would revert.`;
               }
