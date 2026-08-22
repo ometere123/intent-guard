@@ -23,7 +23,7 @@ Every hash below is full and unabbreviated. Every stored value was read back fro
 | Decoder parity/drift guard | PASS | In-repo corpus executes the embedded decoder and checks `decoder_fingerprint()`. |
 | ACCEPTED restoration | PASS | Persisted `ACCEPTED` remains active, resumes polling, and never counts as application success. |
 | Live-read failure semantics | PASS | Empty/not-found remain distinct from unavailable/malformed reads across ledger, detail and guard surfaces. |
-| Linux CI | PASS | GitHub Actions run `32508763523` on commit `0b07fa471edc4f37a3085d9bf44bf058cbaed11b`, `ubuntu-latest`, conclusion `success`; its `npm ci` step reports `found 0 vulnerabilities`. CI runs on every push, so later commits have their own runs. |
+| Linux CI | PASS | GitHub Actions run `32548068832` on commit `ea4532d85a051bceab6431a82da3c8ec26ec5d53` — the commit carrying `IG-PROOF-2`, the three verifier fixes and `evidence/studionet.json` — `ubuntu-latest`, job `offline`, conclusion `success`. The earlier run `32508763523` on commit `0b07fa471edc4f37a3085d9bf44bf058cbaed11b` is recorded separately in the evidence file because its `npm ci` step is the first to report `found 0 vulnerabilities`. CI runs on every push, so the commit that added this row has a later run of its own; the release tag points at that one. |
 | TypeScript | PASS | `tsc --noEmit`. |
 | ESLint | PASS | `eslint .`. |
 | Production build | PASS | `next build`. |

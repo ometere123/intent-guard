@@ -287,12 +287,27 @@
   },
   "ci": {
     "provider": "GitHub Actions",
-    "runId": "32508763523",
-    "commit": "0b07fa471edc4f37a3085d9bf44bf058cbaed11b",
-    "os": "ubuntu-latest",
-    "conclusion": "success",
-    "npmCiAudit": "found 0 vulnerabilities",
-    "note": "CI runs on every push, so commits after the one named here have their own runs. This run is recorded because its npm ci step is the first to report 0 vulnerabilities in place of the 3 high-severity findings."
+    "workflow": "verify",
+    "jobs": [
+      "offline"
+    ],
+    "os": [
+      "ubuntu-latest"
+    ],
+    "releaseRun": {
+      "runId": "32548068832",
+      "commit": "ea4532d85a051bceab6431a82da3c8ec26ec5d53",
+      "conclusion": "success",
+      "note": "The run over the commit that introduced IG-PROOF-2, the three verifier fixes and this evidence file. Green on 2026-08-22."
+    },
+    "auditMilestoneRun": {
+      "runId": "32508763523",
+      "commit": "0b07fa471edc4f37a3085d9bf44bf058cbaed11b",
+      "conclusion": "success",
+      "npmCiAudit": "found 0 vulnerabilities",
+      "note": "Recorded separately because its npm ci step is the first to report 0 vulnerabilities in place of the 3 high-severity findings."
+    },
+    "note": "CI runs on every push. The commit that adds this block is therefore validated by a later run than the releaseRun named here; that later run is the one the release tag points at. Both are stated rather than collapsing them into a single unfalsifiable claim."
   },
   "notProvenOnChain": [
     "The veto path. A veto needs a live mainnet proposal whose executable calls genuinely contradict its own published text. Two real Uniswap proposals were put through the full request_review -> review path and neither diverged -- both returned UNDERSPECIFIED because of opaque nested calldata, which is the contract's own rule. A DIVERGENT verdict was not forced out of either one. Covered instead by deterministic tests in tests/direct/test_lifecycle.py, which drive DIVERGENT rounds under mocked inference over ABI bytes the test file encodes itself.",
