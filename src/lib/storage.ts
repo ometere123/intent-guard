@@ -26,10 +26,14 @@ export function writeTransactions(items: StoredTransaction[]) {
 }
 
 /**
- * An earlier build offered a browser-generated signing key held in localStorage.
- * An injected wallet is the only signer now, but removing the feature is not a
- * reason to leave a plaintext private key behind in a browser that used it, so
- * the wallet provider calls this once on mount.
+ * Previous experimental builds stored a generated StudioNet key locally. Current versions
+ * support injected wallets only. Legacy generated-wallet material is deleted on migration
+ * and is never used.
+ *
+ * These two names exist here for one purpose, which is to be removed. Nothing reads them,
+ * nothing writes them, and the feature that created them is gone deliberately and is not
+ * coming back. Removing a feature is not a reason to leave a plaintext private key behind
+ * in a browser that used it, so the wallet provider calls this once on mount.
  */
 export function purgeLegacyGeneratedKey() {
   if (typeof localStorage === "undefined") return;

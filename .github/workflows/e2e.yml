@@ -1,0 +1,58 @@
+name: e2e
+
+# These tests open the deployed site, so they are deliberately not triggered by
+# push. A push-triggered run races Vercel: the workflow starts when the commit
+# lands, Vercel starts building at the same moment, and the browser would then
+# assert this commit's behaviour against the previous commit's deployment. The
+# result would be a red run that says nothing about either commit.
+#
+# So the suite runs on a schedule, which catches a deployment that has drifted
+# or a contract read that has started failing, and on demand:
+#
+#   gh workflow run e2e.yml
+#
+# which is what to run once Vercel reports the deployment for a given commit
+# READY. `base_url` points the same suite at a preview deployment instead.
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Origin to test, defaulting to the production deployment
+        required: false
+        type: string
+  schedule:
+    # 06:17 UTC daily. Off the hour on purpose: the top of every hour is the
+    # busiest slot on shared runners.
+    - cron: "17 6 * * *"
+
+permissions:
+  contents: read
+
+# Third-party actions are pinned to immutable commit SHAs, not tags. A tag is a
+# movable ref: whoever owns the action can retarget v4 at a new commit, and this
+# workflow would run it without the diff ever appearing in this repository. The
+# trailing comment records which release each SHA is, so the pin stays readable.
+jobs:
+  deployed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Chromium only. The suite asserts contract state and copy, not rendering
+      # differences between engines, and three browsers would triple the reads
+      # this makes against the public StudioNet RPC for no extra evidence.
+      - run: npx playwright install --with-deps chromium
+      - name: Run the deployed-site suite
+        env:
+          E2E_BASE_URL: ${{ inputs.base_url }}
+        run: npm run test:e2e
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14

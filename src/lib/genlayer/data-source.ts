@@ -8,6 +8,7 @@
  */
 
 import type { DecodedAction, Rebuttal, Review } from "../contract-types";
+import type { MinimumBond } from "../minimum-bond";
 import { MOCK_REBUTTALS, MOCK_REVIEWS, MOCK_ACTIONS_BY_ID } from "../mock-data";
 import { CONTRACT_ADDRESS, DATA_MODE, IS_LIVE } from "./config";
 import * as live from "./contract";
@@ -103,6 +104,35 @@ export async function isVetoed(
     unavailable: false,
     note: review ? (review.status === "PENDING" ? "A review was requested but has not run." : "") : "No review is recorded for this governor and proposal.",
   };
+}
+
+/**
+ * The bond floor, as the contract states it.
+ *
+ * There is deliberately no fixture branch that invents a number. In fixture mode
+ * there is no contract, so there is no minimum to report, and the forms refuse the
+ * write rather than validating against a figure this file made up. Fixture mode
+ * cannot write anyway, so nothing is lost and nothing is fabricated.
+ */
+export async function minimumReviewBond(): Promise<MinimumBond> {
+  if (!IS_LIVE) {
+    return {
+      kind: "unreadable",
+      reason:
+        "no Intent Guard contract is configured, so there is no minimum to read and no write to send.",
+    };
+  }
+  const stats = await live.getStats();
+  if (stats.kind !== "AVAILABLE") {
+    return {
+      kind: "unreadable",
+      reason:
+        stats.kind === "NOT_FOUND"
+          ? "the contract returned no stats record."
+          : `the stats read was ${stats.kind.toLowerCase()} (${stats.error}).`,
+    };
+  }
+  return { kind: "known", wei: BigInt(stats.value.min_review_bond_wei) };
 }
 
 export async function ledgerCounts(): Promise<ReadResult<ReturnType<typeof countReviews>>> {

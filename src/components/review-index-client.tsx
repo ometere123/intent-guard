@@ -125,7 +125,7 @@ export function ReviewIndexClient({ reviews }: { reviews: Review[] }) {
                     </p>
                     <p className="ig-label mt-1">
                       {review.action_count} action{review.action_count === "1" ? "" : "s"} · bond{" "}
-                      {formatGen(review.bond)} GEN
+                      {formatGen(review.bond)}
                     </p>
                     <p className="ig-label mt-1">{displayTime(review.reviewed_at) || "not yet run"}</p>
                   </div>

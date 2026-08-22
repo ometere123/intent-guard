@@ -160,6 +160,10 @@ All three were transitive through one direct dependency, `next 16.2.12`, and npm
 
 After the bump: `postcss` resolves to `8.5.23` and `sharp` to `0.35.3`, both outside their advisory ranges. `npm audit` and `npm audit --omit=dev` both report **0 vulnerabilities**, and CI confirms it independently: the `npm ci` step of run `32508763523` prints `found 0 vulnerabilities` where the earlier runs printed 3 high. Neither app imports `next/image`, so the `sharp` code path was never reachable at runtime in the first place, but it is now on a fixed version regardless rather than being argued away. `npm run verify` passes end to end on the new lockfile.
 
+### Version alignment
+
+That upgrade moved `next` and left `eslint-config-next` behind at `16.2.12`, which is a supported combination but not an intentional one: the config that decides which framework rules apply was a minor release behind the framework. Both are now pinned to exactly `16.3.2` in both repositories, so a rule change shipped with a Next release lands in lint at the same time it lands in the build. The alignment also drops a stale nested `@eslint-community/eslint-utils` / `eslint-visitor-keys` pair from the lint tree. `npm audit`, `npm audit --omit=dev`, typecheck, lint, the full test suites and `next build` were all re-run afterwards on the regenerated lockfile.
+
 ## Reproduction
 
 ```bash

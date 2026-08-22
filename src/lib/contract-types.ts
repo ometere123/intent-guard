@@ -108,6 +108,23 @@ export type Rebuttal = {
   bond_settled?: boolean;
 };
 
+/**
+ * `stats()`. Every value is a u256 rendered as a decimal string, except the two
+ * RPC labels and the fourbyte source. Only `min_review_bond_wei` is load-bearing
+ * in the UI: it is the bond floor the request form enforces, and reading it here
+ * is what keeps that floor from being a hardcoded copy that can go stale.
+ */
+export type ContractStats = {
+  reviews?: string;
+  rebuttals?: string;
+  active_vetoes?: string;
+  bounty_pool?: string;
+  balance?: string;
+  min_review_bond_wei: string;
+  rebuttal_window_seconds?: string;
+  rereview_cooldown_seconds?: string;
+};
+
 /** The contract deliberately returns more than a bool: false can mean
  * "reviewed and clear" or "never reviewed". */
 export type VetoState = {

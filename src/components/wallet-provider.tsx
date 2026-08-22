@@ -2,9 +2,22 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createInjectedClient } from "@/lib/genlayer/client";
+import { chain, CHAIN_NAME } from "@/lib/genlayer/config";
 import { purgeLegacyGeneratedKey } from "@/lib/storage";
+import {
+  chainIdHex,
+  DISCONNECTED,
+  nextWalletState,
+  networkLabel,
+  networkVerdict,
+  parseChainId,
+  writeGate,
+  type NetworkVerdict,
+  type WalletMode,
+  type WalletState,
+} from "@/lib/wallet-session";
 
-export type WalletMode = "none" | "injected";
+export type { WalletMode };
 
 type WalletContextValue = {
   mode: WalletMode;
@@ -12,7 +25,16 @@ type WalletContextValue = {
   hasInjected: boolean;
   connecting: boolean;
   error?: string;
+  /** Where the wallet says it is. Writes are held back unless this is `expected`. */
+  network: NetworkVerdict;
+  /** What the masthead prints. Never this build's network name unless the wallet is on it. */
+  networkName: string;
+  canWrite: boolean;
+  /** Why a write cannot be signed, or undefined when one can. */
+  writeBlockedReason?: string;
   connectInjected: () => Promise<void>;
+  /** Asks the wallet to move to the chain this build targets. */
+  switchNetwork: () => Promise<void>;
   disconnect: () => void;
   getWriteClient: () => Promise<Awaited<ReturnType<typeof createInjectedClient>>>;
 };
@@ -20,16 +42,17 @@ type WalletContextValue = {
 const WalletContext = createContext<WalletContextValue | null>(null);
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<WalletMode>("none");
-  const [address, setAddress] = useState<`0x${string}` | undefined>(undefined);
+  const [wallet, setWallet] = useState<WalletState>(DISCONNECTED);
   const [hasInjected, setHasInjected] = useState(false);
   const [connecting, setConnecting] = useState(false);
-  const [error, setError] = useState<string | undefined>(undefined);
 
   // Detect the provider without touching it. Never auto-connect: a page load is
-  // not consent to reveal an address. Also delete any key left in localStorage by
-  // the generated-wallet build this replaced — removing the feature is not a
-  // reason to leave a private key sitting in someone's browser.
+  // not consent to reveal an address.
+  //
+  // The same pass deletes anything the generated-wallet build left behind. Previous
+  // experimental builds stored a generated StudioNet key locally. Current versions
+  // support injected wallets only. Legacy generated-wallet material is deleted on
+  // migration and is never used.
   useEffect(() => {
     queueMicrotask(() => {
       setHasInjected(Boolean(window.ethereum));
@@ -37,30 +60,60 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // Follow the wallet once a session is open. Without this the plate would keep
-  // showing an address the person has already switched away from or revoked,
-  // and the next write would fail for a reason the UI never stated.
+  // Follow the wallet for as long as a session is open. All three events matter:
+  // the address on screen has to be the address that would sign, the chain has to
+  // be the chain the transaction would go to, and a provider that has dropped the
+  // connection must not leave a stale session looking live.
   useEffect(() => {
     const provider = typeof window !== "undefined" ? window.ethereum : undefined;
-    if (mode !== "injected" || !provider?.on) return;
-    const onAccountsChanged = (...args: unknown[]) => {
-      const next = (args[0] as string[] | undefined)?.[0];
-      if (!next) {
-        setMode("none");
-        setAddress(undefined);
-        return;
-      }
-      setAddress(next as `0x${string}`);
+    if (wallet.mode !== "injected" || !provider?.on) return;
+
+    const onAccounts = (...args: unknown[]) =>
+      setWallet((current) => nextWalletState(current, { type: "accounts-changed", accounts: args[0] }));
+    const onChain = (...args: unknown[]) =>
+      setWallet((current) => nextWalletState(current, { type: "chain-changed", chainId: args[0] }));
+    const onDisconnect = (...args: unknown[]) => {
+      const detail = args[0];
+      const message =
+        detail && typeof detail === "object" && "message" in detail
+          ? String((detail as { message: unknown }).message)
+          : undefined;
+      setWallet((current) => nextWalletState(current, { type: "provider-disconnected", message }));
     };
-    provider.on("accountsChanged", onAccountsChanged);
-    return () => provider.removeListener?.("accountsChanged", onAccountsChanged);
-  }, [mode]);
+
+    provider.on("accountsChanged", onAccounts);
+    provider.on("chainChanged", onChain);
+    provider.on("disconnect", onDisconnect);
+    return () => {
+      provider.removeListener?.("accountsChanged", onAccounts);
+      provider.removeListener?.("chainChanged", onChain);
+      provider.removeListener?.("disconnect", onDisconnect);
+    };
+  }, [wallet.mode]);
+
+  const switchNetwork = useCallback(async () => {
+    const provider = typeof window !== "undefined" ? window.ethereum : undefined;
+    if (!provider) return;
+    try {
+      await provider.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: chainIdHex(chain.id) }],
+      });
+      // The wallet answers with `chainChanged`, which the listener above records. Asking
+      // again here would only duplicate what the event already says.
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : String(caught);
+      setWallet((current) => ({
+        ...current,
+        error: `This wallet would not switch to ${CHAIN_NAME} (chain ${chain.id}): ${message} Add the network in the wallet itself, then reconnect.`,
+      }));
+    }
+  }, []);
 
   const connectInjected = useCallback(async () => {
-    setError(undefined);
     const provider = typeof window !== "undefined" ? window.ethereum : undefined;
     if (!provider) {
-      setError("No injected wallet was found in this browser.");
+      setWallet({ mode: "none", error: "No injected wallet was found in this browser." });
       return;
     }
     setConnecting(true);
@@ -73,44 +126,62 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       })) as `0x${string}`[];
       const next = accounts?.[0];
       if (!next) {
-        setError("The wallet returned no account.");
+        setWallet({ mode: "none", error: "The wallet returned no account." });
         return;
       }
-      setAddress(next);
-      setMode("injected");
+      // Ask which chain before declaring the session open, so the first render already
+      // knows whether a write may go out.
+      const chainId = parseChainId(await provider.request({ method: "eth_chainId" }));
+      setWallet(nextWalletState(DISCONNECTED, { type: "connected", address: next, chainId }));
+
+      // On the wrong chain, ask once. A wallet that refuses says so, and writes stay shut.
+      if (chainId !== undefined && chainId !== chain.id) {
+        await switchNetwork();
+      }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The wallet request was rejected.");
+      const message = caught instanceof Error ? caught.message : String(caught);
+      setWallet((current) => nextWalletState(current, { type: "connection-refused", message }));
     } finally {
       setConnecting(false);
     }
-  }, []);
+  }, [switchNetwork]);
 
   // Forgets the session in this tab. A wallet cannot be made to revoke a site
   // from here, so the copy says disconnect and means exactly this much.
   const disconnect = useCallback(() => {
-    setMode("none");
-    setAddress(undefined);
-    setError(undefined);
+    setWallet((current) => nextWalletState(current, { type: "forget" }));
   }, []);
 
   const getWriteClient = useCallback(async () => {
-    if (mode === "injected" && address) return createInjectedClient(address);
-    throw new Error("Connect a wallet before sending a transaction.");
-  }, [address, mode]);
+    // Gated here as well as in the UI, because this is the last point before a
+    // signature is requested and a caller that skipped the gate must still not get a
+    // client pointed at the wrong chain.
+    const decision = writeGate(wallet, chain.id, CHAIN_NAME);
+    if (!decision.canWrite || !wallet.address) {
+      throw new Error(decision.message ?? "Connect a wallet before sending a transaction.");
+    }
+    return createInjectedClient(wallet.address);
+  }, [wallet]);
 
-  const value = useMemo(
-    () => ({
-      mode,
-      address,
+  const value = useMemo(() => {
+    const network = networkVerdict(wallet, chain.id);
+    const gate = writeGate(wallet, chain.id, CHAIN_NAME);
+    return {
+      mode: wallet.mode,
+      address: wallet.address,
       hasInjected,
       connecting,
-      error,
+      error: wallet.error,
+      network,
+      networkName: networkLabel(network, CHAIN_NAME),
+      canWrite: gate.canWrite,
+      writeBlockedReason: gate.message,
       connectInjected,
+      switchNetwork,
       disconnect,
       getWriteClient,
-    }),
-    [address, connecting, connectInjected, disconnect, error, getWriteClient, hasInjected, mode],
-  );
+    };
+  }, [wallet, hasInjected, connecting, connectInjected, switchNetwork, disconnect, getWriteClient]);
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }

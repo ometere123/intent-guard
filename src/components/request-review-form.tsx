@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { GOVERNORS, findGovernor } from "@/lib/governors";
 import { genToWei } from "@/lib/format";
+import { bondRefusal, minimumBondLabel, openingBond } from "@/lib/minimum-bond";
+import { useMinimumBond } from "@/components/use-minimum-bond";
 import { useWriteRunner } from "@/components/write-runner";
 import { Lifecycle } from "@/components/lifecycle";
 
@@ -10,13 +12,27 @@ import { Lifecycle } from "@/components/lifecycle";
 const PLAUSIBLE_BLOCK_MIN = 10_000_000n;
 const PLAUSIBLE_BLOCK_MAX = 40_000_000n;
 
+/**
+ * The bond the field opens with, before the contract has answered. It is a starting
+ * value in a text box, not the rule: `bondRefusal` compares against whatever
+ * `stats().min_review_bond_wei` says, and once that arrives an untouched field shows it
+ * instead. Chosen to be the cheapest bond the deployed contract accepts, because a form
+ * that opens at 2 GEN quietly asks for two thousand times the floor.
+ */
+const OPENING_BOND = "0.001";
+
 export function RequestReviewForm() {
   const { state, run, reset, walletGate } = useWriteRunner();
+  const minimum = useMinimumBond();
   const [id, setId] = useState("");
   const [governor, setGovernor] = useState(GOVERNORS[0]?.address ?? "");
   const [proposalId, setProposalId] = useState("");
   const [block, setBlock] = useState("");
-  const [bond, setBond] = useState("2");
+  const [typedBond, setTypedBond] = useState<string | null>(null);
+
+  // Derived, not stored: an untouched field shows the contract's floor as soon as
+  // `stats()` answers, and anything typed wins from that keystroke onwards.
+  const bond = typedBond ?? openingBond(minimum, OPENING_BOND);
 
   const entry = findGovernor(governor);
   const busy = state.phase !== "idle";
@@ -42,12 +58,7 @@ export function RequestReviewForm() {
     if (blockValue < PLAUSIBLE_BLOCK_MIN || blockValue > PLAUSIBLE_BLOCK_MAX) {
       return `Block ${blockValue} is outside the plausible range for Ethereum mainnet. The contract applies the same check before it fetches anything.`;
     }
-    try {
-      if (genToWei(bond) <= 0n) return "A bond above zero is required. Requesting a review is cheap, not free.";
-    } catch {
-      return "A bond is a decimal amount of GEN, for example 2 or 2.5.";
-    }
-    return null;
+    return bondRefusal(bond, minimum);
   }
 
   return (
@@ -117,7 +128,12 @@ export function RequestReviewForm() {
           label="bond, in GEN"
           hint="Returned on every honest verdict. Returned plus a bounty if a real divergence is found. A rebuttal must match it exactly."
         >
-          <input className="ig-input" value={bond} onChange={(e) => setBond(e.target.value)} />
+          <input
+            className="ig-input"
+            value={bond}
+            onChange={(e) => setTypedBond(e.target.value)}
+          />
+          <p className="ig-calldata-sm mt-1 opacity-75">{minimumBondLabel(minimum)}</p>
         </Field>
 
         <div className="flex items-end">
@@ -132,7 +148,7 @@ export function RequestReviewForm() {
         <ol className="ig-aside mt-2 flex max-w-[74ch] flex-col gap-1">
           <li>1 · the governor is in the adapter registry</li>
           <li>2 · this proposal has not already been reviewed</li>
-          <li>3 · the bond is above zero</li>
+          <li>3 · the bond meets the minimum the contract publishes</li>
           <li>4 · the block hint is plausible</li>
         </ol>
         <p className="ig-aside mt-2 max-w-[74ch]">

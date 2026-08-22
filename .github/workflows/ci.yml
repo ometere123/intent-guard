@@ -4,16 +4,23 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
+# Third-party actions are pinned to immutable commit SHAs, not tags. A tag is a
+# movable ref: whoever owns the action can retarget v4 at a new commit, and this
+# workflow would run it without the diff ever appearing in this repository. The
+# trailing comment records which release each SHA is, so the pin stays readable.
 jobs:
   offline:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
       - run: npm ci
@@ -26,11 +33,21 @@ jobs:
       # the fallback 404s. Seeding the cache with the last release that does
       # publish that asset pins resolution to the same SDK the direct tests are
       # developed against locally, instead of leaving it to float.
+      #
+      # The archive is checked against a known SHA-256 before gltest is allowed
+      # to unpack it. Pinning the release tag alone would still trust whatever
+      # bytes that URL serves today; sha256sum -c exits non-zero on mismatch,
+      # which fails the job rather than silently running a different SDK.
       - name: Seed GenVM SDK cache (pins gltest to genvm v0.2.16)
+        env:
+          GENVM_SDK_SHA256: 4f0b358ec98ec148be9b95cdfb0f0e1a6cbe64da0194fdfac3fffc6f5d1d93e2
         run: |
+          set -euo pipefail
           mkdir -p ~/.cache/gltest-direct
           curl -fsSL --retry 3 -o ~/.cache/gltest-direct/genvm-universal-v0.2.16.tar.xz \
             https://github.com/genlayerlabs/genvm/releases/download/v0.2.16/genvm-universal.tar.xz
+          echo "${GENVM_SDK_SHA256}  ${HOME}/.cache/gltest-direct/genvm-universal-v0.2.16.tar.xz" \
+            | sha256sum -c -
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test

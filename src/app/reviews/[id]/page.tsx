@@ -217,7 +217,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
                 <Link href={`/rebut/${review.id}`} className="underline decoration-1 underline-offset-4">
                   answer this finding
                 </Link>{" "}
-                by bonding exactly {formatGen(review.bond)} GEN, the same amount the reviewer
+                by bonding exactly {formatGen(review.bond)}, the same amount the reviewer
                 bonded.
               </>
             ) : (
@@ -231,7 +231,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
                 <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
                   <p className="ig-calldata">{rebuttal.id}</p>
                   <p className="ig-label ig-label-ink">{rebuttal.status.replaceAll("_", " ").toLowerCase()}</p>
-                  <p className="ig-label">bond {formatGen(rebuttal.bond)} GEN</p>
+                  <p className="ig-label">bond {formatGen(rebuttal.bond)}</p>
                   <p className="ig-label">
                     rebutter {shortenHex(rebuttal.rebutter)}
                   </p>
@@ -301,7 +301,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
             )}
           </Field>
           <Field label="requester">{review.requester}</Field>
-          <Field label="bond">{formatGen(review.bond)} GEN</Field>
+          <Field label="bond">{formatGen(review.bond)}</Field>
           <Field label="action count">{review.action_count}</Field>
           <Field label="mandate digest">{review.mandate_digest || "not recorded"}</Field>
           <Field label="actions digest">{review.actions_digest || "not recorded"}</Field>

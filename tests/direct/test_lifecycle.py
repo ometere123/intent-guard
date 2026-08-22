@@ -159,17 +159,21 @@ def action_set(module):
     ]
 
 
-def install_rpc_router(monkeypatch, module, actions, b_actions=None):
+def install_rpc_router(monkeypatch, module, actions, b_actions=None, proposal_id=PROPOSAL_ID):
     """Answer `eth_getLogs` and `eth_call` from the same encoded action set.
 
     Both providers are given the same bytes by default, which is the point: the
     contract's three-way digest comparison must actually pass for the round to reach a
     verdict at all. Pass `b_actions` to give provider B a different reading.
+
+    `proposal_id` has to reach the encoder as well as the request, because the contract
+    finds its proposal by matching the id inside the log rather than trusting whatever
+    the provider hands back first.
     """
     logs = [{
         "address": UNISWAP,
         "topics": [module.TOPIC_PROPOSAL_CREATED],
-        "data": proposal_created_data(actions),
+        "data": proposal_created_data(actions, proposal_id=proposal_id),
         "blockNumber": hex(CREATION_BLOCK),
     }]
     call_a = get_actions_return(actions)
@@ -224,11 +228,13 @@ def set_block_time(direct_vm, iso):
         gl.message_raw["datetime"] = iso
 
 
-def request(contract, direct_vm, sender, review_id="IG-V1"):
+def request(contract, direct_vm, sender, review_id="IG-V1", proposal_id=PROPOSAL_ID):
     direct_vm.sender = sender
     direct_vm.value = MIN_BOND
-    contract.request_review(review_id, UNISWAP, PROPOSAL_ID, CREATION_BLOCK)
+    outcome = contract.request_review(review_id, UNISWAP, proposal_id, CREATION_BLOCK)
     direct_vm.value = 0
+    assert outcome == review_id, outcome
+    return outcome
 
 
 def divergent_review(
@@ -241,11 +247,12 @@ def divergent_review(
     index=1,
     resolvable=True,
     verdict="DIVERGENT",
+    proposal_id=PROPOSAL_ID,
 ):
     """Take one review from PENDING to a recorded verdict. Returns the module."""
     module = module_of(contract)
-    request(contract, direct_vm, reviewer, review_id=review_id)
-    install_rpc_router(monkeypatch, module, action_set(module))
+    request(contract, direct_vm, reviewer, review_id=review_id, proposal_id=proposal_id)
+    install_rpc_router(monkeypatch, module, action_set(module), proposal_id=proposal_id)
     mock_fourbyte(direct_vm, resolvable=resolvable)
     mock_alignment(direct_vm, verdict, kind, index)
     contract.review(review_id)
@@ -406,40 +413,59 @@ def test_a_clean_aligned_round_clears_the_proposal_and_returns_the_bond(
 
 
 def test_rebuttal_is_refused_when_there_is_no_live_veto(
-    direct_deploy, direct_vm, monkeypatch, direct_alice, direct_bob
+    direct_deploy, direct_vm, monkeypatch, direct_alice, direct_bob, value_ledger
 ):
     contract = direct_deploy("contracts/IntentGuard.py")
     divergent_review(contract, direct_vm, monkeypatch, direct_alice, verdict="ALIGNED", kind="NONE", index=0)
+    value_ledger.clear()
 
     direct_vm.sender = direct_bob
-    direct_vm.value = MIN_BOND
-    with direct_vm.expect_revert("carries no veto"):
-        contract.rebut("RB-1", "IG-V1", ARGUMENT_URL)
-    direct_vm.value = 0
+    value_ledger.fund(MIN_BOND)
+    outcome = contract.rebut("RB-1", "IG-V1", ARGUMENT_URL)
+    value_ledger.no_value()
+
+    assert outcome.startswith("[REJECTED]")
+    assert "carries no veto" in outcome
+    assert value_ledger.paid_to(direct_bob) == MIN_BOND
+    assert value_ledger.retained == 0
     assert contract.get_rebuttal("RB-1") == {}
     assert contract.stats()["rebuttals"] == "0"
 
 
 def test_rebuttal_bond_must_equal_the_review_bond_exactly(
-    direct_deploy, direct_vm, monkeypatch, direct_alice, direct_bob
+    direct_deploy, direct_vm, monkeypatch, direct_alice, direct_bob, value_ledger
 ):
     contract = direct_deploy("contracts/IntentGuard.py")
     divergent_review(contract, direct_vm, monkeypatch, direct_alice)
+    value_ledger.clear()
 
     direct_vm.sender = direct_bob
     for amount in (MIN_BOND - 1, MIN_BOND * 2):
-        direct_vm.value = amount
+        value_ledger.fund(amount)
         # Not a minimum and not a multiple: an asymmetric stake would let whichever side
-        # held more capital buy the question.
-        with direct_vm.expect_revert("must equal the review bond exactly"):
-            contract.rebut("RB-1", "IG-V1", ARGUMENT_URL)
+        # held more capital buy the question. The wrong amount comes straight back.
+        outcome = contract.rebut("RB-1", "IG-V1", ARGUMENT_URL)
+        assert outcome.startswith("[REJECTED]")
+        assert "must equal the review bond exactly" in outcome
+        assert value_ledger.paid_to(direct_bob) == value_ledger.funded
 
-    direct_vm.value = MIN_BOND
-    with direct_vm.expect_revert("must be an http(s) URL"):
-        contract.rebut("RB-1", "IG-V1", "ftp://example.org/argument")
+    value_ledger.fund(MIN_BOND)
+    bad_url = contract.rebut("RB-1", "IG-V1", "ftp://example.org/argument")
+    assert bad_url.startswith("[REJECTED]")
+    assert "must be an http(s) URL" in bad_url
 
-    contract.rebut("RB-1", "IG-V1", ARGUMENT_URL)
-    direct_vm.value = 0
+    # Three refusals, three refunds, and nothing written by any of them.
+    assert value_ledger.retained == 0
+    assert contract.stats()["rebuttals"] == "0"
+
+    refunded_so_far = value_ledger.paid_to(direct_bob)
+    accepted = value_ledger.fund(MIN_BOND)
+    assert contract.rebut("RB-1", "IG-V1", ARGUMENT_URL) == "RB-1"
+    value_ledger.no_value()
+
+    # The accepted bond is the one amount that does *not* come back: it is escrowed.
+    assert value_ledger.paid_to(direct_bob) == refunded_so_far
+    assert value_ledger.retained == accepted
 
     rb = contract.get_rebuttal("RB-1")
     assert rb["status"] == "OPEN"
@@ -456,10 +482,13 @@ def test_rebuttal_bond_must_equal_the_review_bond_exactly(
     assert r["rebuttable"] is False
     assert r["rereviewable"] is False
 
-    direct_vm.value = MIN_BOND
-    with direct_vm.expect_revert("already has rebuttal RB-1"):
-        contract.rebut("RB-2", "IG-V1", ARGUMENT_URL)
-    direct_vm.value = 0
+    second = value_ledger.fund(MIN_BOND)
+    duplicate = contract.rebut("RB-2", "IG-V1", ARGUMENT_URL)
+    value_ledger.no_value()
+    assert duplicate.startswith("[REJECTED]")
+    assert "already has rebuttal RB-1" in duplicate
+    assert value_ledger.paid_to(direct_bob) == refunded_so_far + second
+    assert value_ledger.retained == accepted
 
 
 def mock_argument(direct_vm, disposition, text="The recipient move is in scope."):

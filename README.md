@@ -76,6 +76,16 @@ The veto, rebuttal and override branches are **not** proven on StudioNet. Reachi
 5. Anyone may adjudicate or expire the window. A fresh governance vote may clear a standing veto.
 6. Integrators query `/guard` or call `is_vetoed` directly before execution.
 
+## Signing
+
+**Wallet mode: injected only.** Every write is signed by `window.ethereum` in the reader's own browser. This app holds no signer of its own: it never generates a private key, never stores one, never offers a browser-wallet mode, and never falls back to a local signer if no extension is present. Reading the ledger needs no wallet at all.
+
+Previous experimental builds stored a generated StudioNet key locally. Current versions support injected wallets only. Legacy generated-wallet material is deleted on migration and is never used. The purge runs once when [`wallet-provider.tsx`](./src/components/wallet-provider.tsx) mounts, calling `purgeLegacyGeneratedKey()` in [`storage.ts`](./src/lib/storage.ts), which only ever removes those two keys. There is no recovery path for a key from those builds, and that is intentional.
+
+The one account this app constructs is the ephemeral read account in [`read-client.ts`](./src/lib/genlayer/read-client.ts). `genlayer-js` requires a client to carry an account even for a view call, so that account exists in memory for the length of a read. It is never written to storage, never shown, never funded, and never used to sign anything.
+
+The wallet's own network is what the masthead prints, not the network this build targets. If the wallet reports a different chain, the plate says so, offers to switch, and writes stay closed until it is on the expected chain. A wallet that has not answered `eth_chainId` is treated as unconfirmed and also cannot sign, because a transaction sent to the wrong chain is worse than one not sent. `tests/wallet-session.test.mjs` covers all five events: account changed, account removed, chain changed, provider disconnected, and a refused connection request.
+
 ## Environment
 
 Create `.env.local` from `.env.example`:
@@ -131,7 +141,17 @@ node scripts/exercise-studionet.mjs IG-PROOF-2 \
 
 Both exit 0 as of 2026-08-22, but only after three real defects in the script itself were fixed that day, and the honest version of that sentence is that this check had never actually passed before. Its FINALIZED assertion read `tx.status_name`, a field the RPC never sends; it fell through to the raw `status`, which is a numeric enum ordinal, so the comparison was `7 !== "FINALIZED"` and could never succeed. Its `is_vetoed` read used a hardcoded governor/proposal pair, so for any id but the first it would have reported a different proposal's veto state; both are now derived from the review the script just read. Third, it took the contract address from `process.env` without loading `.env.local`, unlike its sibling `scripts/verify-schema.mjs`, so the two commands exactly as printed above aborted on a missing environment variable before reaching the network, and only worked for a shell that had exported one by hand. It now uses the same loader the sibling script already had. None of the three was a defect in the contract and no contract change was made. `verify:studionet` is not part of the `npm run verify` chain, which is why CI never surfaced them; that is recorded rather than quietly corrected.
 
-`npm audit` and `npm audit --omit=dev` both report 0 vulnerabilities. Three high-severity transitive findings surfaced earlier through `next 16.2.12` and were resolved by an explicit reviewed `next@16.3.2` upgrade rather than `npm audit fix --force`; the full determination is in [`docs/SUBMISSION.md`](./docs/SUBMISSION.md#dependency-audit).
+`npm audit` and `npm audit --omit=dev` both report 0 vulnerabilities. Three high-severity transitive findings surfaced earlier through `next 16.2.12` and were resolved by an explicit reviewed `next@16.3.2` upgrade rather than `npm audit fix --force`; the full determination is in [`docs/SUBMISSION.md`](./docs/SUBMISSION.md#dependency-audit). `eslint-config-next` was left behind at `16.2.12` by that upgrade and has since been pinned to `16.3.2`, so the lint config and the framework it lints for are the same release.
+
+Two things enter the CI runner from outside the lockfile, and both are pinned by digest rather than by name. Every third-party action in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) is referenced by full commit SHA with the release in a trailing comment, because `@v4` is a movable ref that would let an action's owner change what runs here with no diff in this repository. The GenVM SDK archive the direct tests need is fetched from a GitHub release, so the job checks it against a known SHA-256 before gltest unpacks it:
+
+```bash
+echo "4f0b358ec98ec148be9b95cdfb0f0e1a6cbe64da0194fdfac3fffc6f5d1d93e2  genvm-universal-v0.2.16.tar.xz" | sha256sum -c -
+```
+
+That value is the digest GitHub's release API reports for the asset, and it matches the 216,630,904-byte copy the local runs use. The check runs under `set -euo pipefail`, so a substituted archive fails the job instead of quietly changing which SDK `test:direct` executes against.
+
+The repository was also swept for the token classes that hide a leaked secret, an unfinished thought or a stale on-chain claim: TODO and FIXME markers, `localhost`, key and keystore material, mocks and fixtures, superseded contract addresses and old deployment hashes. Every match is classified in [`docs/HYGIENE.md`](./docs/HYGIENE.md), including the ones that are legitimate and why.
 
 A network transaction may be accepted and finalized while its GenVM execution rolls back. Intent Guard therefore treats consensus status and contract execution as separate facts; missing, malformed, `ERROR`, or `ROLLBACK` execution data never becomes application success. That is not theoretical here: the same `request_review` submitted through the unpatched CLI reached `ACCEPTED` with a reverted execution and left `stats.reviews` at `0`.
 
@@ -150,3 +170,7 @@ A network transaction may be accepted and finalized while its GenVM execution ro
 ## Design
 
 The interface is a facing-page scholarly apparatus: warm paper for the human mandate, cool paper for calldata, and citation threads between them. It is intentionally distinct from a generic Web3 dashboard and includes explicit fixture/live provenance on every page.
+
+## License
+
+Apache License 2.0. The full text is in [`LICENSE`](./LICENSE), and the copyright and third-party attribution are in [`NOTICE`](./NOTICE). The mandate texts, proposal descriptions and calldata quoted in the fixtures and evidence files are public on-chain and governance-forum records, reproduced verbatim as evidence.

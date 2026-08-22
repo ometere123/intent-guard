@@ -148,7 +148,7 @@ export function ActionCard({
         <Row label="target">
           <Address value={action.target} />
         </Row>
-        <Row label="value">{formatGen(action.value)} GEN</Row>
+        <Row label="value">{formatGen(action.value)}</Row>
         <Row label="selector">
           {action.selector}
           <KeccakSigil resolved={action.resolved} />

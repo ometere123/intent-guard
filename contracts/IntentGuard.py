@@ -91,6 +91,22 @@ ERROR_EXTERNAL = "[EXTERNAL]"    # a third party failed; retrying later is reaso
 ERROR_TRANSIENT = "[TRANSIENT]"  # a race; retrying now is reasonable
 ERROR_LLM = "[LLM_ERROR]"        # the consensus round produced something unusable
 
+# Returned by a payable entry point that refused a request *after* the bond arrived.
+#
+# This prefix exists because of a measured chain fact, not a style preference. StudioNet
+# does not roll back `gl.message.value` when a GenVM execution reverts: the transaction
+# finalises as failed and the transferred GEN stays in the contract. Neither project has a
+# sweep or an admin withdrawal, deliberately, so value stranded that way is gone for good.
+# Sibling project Recourse has 0.001 GEN sitting in an earlier deployment from exactly this
+# sequence: a bonded call that passed the value check and then failed an argument check.
+#
+# The consequence for this contract is a rule with no exceptions: once a payable method has
+# read `gl.message.value`, it must not raise on anything the caller could have got wrong.
+# It validates everything first, and a failure returns through `_refund_and_reject`, which
+# sends the bond straight back and reports the reason as a return value. See that method for
+# why the transaction has to succeed for the refund to survive.
+REJECTED = "[REJECTED]"
+
 # Returned by every fetch helper instead of raising, so a network failure becomes a
 # recorded refusal rather than a reverted transaction that leaves a bond in limbo.
 FETCH_UNAVAILABLE = "__FETCH_UNAVAILABLE__"
@@ -2838,6 +2854,33 @@ class IntentGuard(gl.Contract):
         raw = gl.message_raw.get("datetime", "")
         return str(raw) if raw else ""
 
+    def _check_len(self, value: str, cap: int, label: str, min_len: int = 1) -> str:
+        """The non-raising half of `_require_len`: a reason, or "" when the value is fine.
+
+        Split out so a payable method can find out that an argument is bad without reverting
+        to say so. Every message here is the exact text `_require_len` puts after
+        `ERROR_EXPECTED`, and `_require_len` is written in terms of this function, so the
+        raising and non-raising paths cannot drift into disagreeing about what is valid.
+        """
+        text = str(value).strip()
+        if text == "":
+            return f"{label} is required"
+        if len(text) < min_len:
+            return f"{label} must be at least {min_len} characters"
+        if len(text) > cap:
+            return f"{label} exceeds {cap} characters"
+        return ""
+
+    def _check_url(self, value: str, label: str) -> str:
+        """The non-raising half of `_require_url`."""
+        reason = self._check_len(value, MAX_URL_CHARS, label)
+        if reason != "":
+            return reason
+        text = str(value).strip()
+        if not (text.startswith("https://") or text.startswith("http://")):
+            return f"{label} must be an http(s) URL"
+        return ""
+
     def _require_len(self, value: str, cap: int, label: str, min_len: int = 1) -> str:
         """Trim a caller-supplied string and bound its length, or revert.
 
@@ -2845,30 +2888,47 @@ class IntentGuard(gl.Contract):
         `vote_ref` raises it: a one-character "reference" to an executed vote is not a
         reference, and the whole point of that field is that a reader can go and look the
         vote up.
+
+        Safe to call from a method that holds no value. A payable method must use
+        `_check_len` instead and route the reason through `_refund_and_reject`, because a
+        revert here would keep the bond.
         """
-        text = str(value).strip()
-        if text == "":
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} {label} is required")
-        if len(text) < min_len:
-            raise gl.vm.UserError(
-                f"{ERROR_EXPECTED} {label} must be at least {min_len} characters"
-            )
-        if len(text) > cap:
-            raise gl.vm.UserError(
-                f"{ERROR_EXPECTED} {label} exceeds {cap} characters"
-            )
-        return text
+        reason = self._check_len(value, cap, label, min_len)
+        if reason != "":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} {reason}")
+        return str(value).strip()
 
     def _require_url(self, value: str, label: str) -> str:
-        text = self._require_len(value, MAX_URL_CHARS, label)
-        if not (text.startswith("https://") or text.startswith("http://")):
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} {label} must be an http(s) URL")
-        return text
+        reason = self._check_url(value, label)
+        if reason != "":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} {reason}")
+        return str(value).strip()
 
     def _pay(self, who: Address, amount: u256) -> None:
         if int(amount) <= 0:
             return
         _Payee(who).emit_transfer(value=amount)
+
+    def _refund_and_reject(self, bond: u256, reason: str) -> str:
+        """Send a rejected request's bond back and report why, without raising.
+
+        The refund and the absence of a revert are one mechanism, not two steps. A revert
+        would undo this transfer and keep the incoming value, which is the failure this
+        contract is being explicit about avoiding; so the transaction has to finish
+        successfully for the money to move, and the rejection has to travel as a return value
+        rather than as an error.
+
+        That gives a rejected bonded call a deliberate and slightly unusual shape on chain:
+        FINALIZED, GenVM SUCCESS, and a return value beginning `[REJECTED]`. Reading that as
+        acceptance would be a mistake, so the prefix is machine-checkable and the frontend
+        treats it as a failed submission.
+
+        Three properties hold on every path that reaches here, and the tests assert all three:
+        no record is created, no counter moves, and the contract keeps none of the bond.
+        Nothing downstream of this call may raise.
+        """
+        self._pay(gl.message.sender_address, bond)
+        return f"{REJECTED} {reason}"
 
     def _require_review(self, review_id: str) -> Review:
         key = self._require_len(review_id, MAX_ID_CHARS, "review id")
@@ -2954,34 +3014,30 @@ class IntentGuard(gl.Contract):
     # Intake — deterministic, no network, no inference
     # ==================================================================================
 
-    @gl.public.write.payable
-    def request_review(
+    def _check_request_review(
         self,
         review_id: str,
         governor: str,
         proposal_id: u256,
         creation_block: u256,
-    ) -> None:
-        """Post a bond against a proposal, and stop.
+        bond: u256,
+    ) -> str:
+        """Everything `request_review` must know before it keeps a bond. "" means proceed.
 
-        No fetch happens here, and that is the point. `review` is a separate, permissionless
-        call, so the expensive consensus round is never bound to the requester's gas budget
-        and never depends on the requester coming back. Anyone can press the button that
-        moves this record forward — including someone who disagrees with the requester.
-
-        Every argument is checked before the bond is taken. Charging for an input that can
-        never be reviewed would be a fee for nothing.
+        Ordered exactly as the raising version was, so the reason a caller sees for a given
+        bad input has not changed. Reads state and writes none, which is what lets the caller
+        refund and return with nothing to undo.
         """
-        bond = u256(gl.message.value)
         if int(bond) < MIN_REVIEW_BOND_WEI:
-            raise gl.vm.UserError(
-                f"{ERROR_EXPECTED} Review bond below the minimum of "
-                f"{MIN_REVIEW_BOND_WEI} wei"
+            return (
+                f"Review bond below the minimum of {MIN_REVIEW_BOND_WEI} wei"
             )
 
-        self._require_len(review_id, MAX_ID_CHARS, "review_id")
+        reason = self._check_len(review_id, MAX_ID_CHARS, "review_id")
+        if reason != "":
+            return reason
         if self.reviews.get(review_id) is not None:
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} review_id already used")
+            return "review_id already used"
 
         gov = str(governor).strip().lower()
         if gov not in SUPPORTED_GOVERNORS:
@@ -2992,33 +3048,64 @@ class IntentGuard(gl.Contract):
             # face. Aave's v2 Governance is deliberately absent for exactly this reason:
             # it stores executor-scoped payloads that `getActions(uint256)` does not
             # describe.
-            raise gl.vm.UserError(
-                f"{ERROR_EXPECTED} Unsupported Governor {gov}. This contract only reviews "
-                f"Governors whose event topic and getActions ABI it has verified: "
+            return (
+                f"Unsupported Governor {gov}. This contract only reviews Governors whose "
+                f"event topic and getActions ABI it has verified: "
                 f"{sorted(SUPPORTED_GOVERNORS.keys())}"
             )
 
         if int(proposal_id) == 0:
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} proposal_id must be non-zero")
+            return "proposal_id must be non-zero"
 
         block = int(creation_block)
         if block < PLAUSIBLE_BLOCK_MIN or block > PLAUSIBLE_BLOCK_MAX:
-            raise gl.vm.UserError(
-                f"{ERROR_EXPECTED} creation_block {block} outside the plausible mainnet "
-                f"range [{PLAUSIBLE_BLOCK_MIN}, {PLAUSIBLE_BLOCK_MAX}]"
+            return (
+                f"creation_block {block} outside the plausible mainnet range "
+                f"[{PLAUSIBLE_BLOCK_MIN}, {PLAUSIBLE_BLOCK_MAX}]"
             )
 
-        key = self._veto_key(gov, int(proposal_id))
-        existing_id = self.veto_index.get(key, "")
+        existing_id = self.veto_index.get(self._veto_key(gov, int(proposal_id)), "")
         if existing_id != "":
             # One record per proposal. Two concurrent rounds on the same proposal would
             # each write a veto flag and `is_vetoed` would answer with whichever landed
             # last, which is how a gate starts giving different answers to the same
             # question. Re-running is a first-class operation with its own method.
-            raise gl.vm.UserError(
-                f"{ERROR_EXPECTED} {gov} proposal {int(proposal_id)} already has review "
-                f"{existing_id}; use rereview({existing_id}) to run it again"
+            return (
+                f"{gov} proposal {int(proposal_id)} already has review {existing_id}; "
+                f"use rereview({existing_id}) to run it again"
             )
+
+        return ""
+
+    @gl.public.write.payable
+    def request_review(
+        self,
+        review_id: str,
+        governor: str,
+        proposal_id: u256,
+        creation_block: u256,
+    ) -> str:
+        """Post a bond against a proposal, and stop. Returns the review id, or a rejection.
+
+        No fetch happens here, and that is the point. `review` is a separate, permissionless
+        call, so the expensive consensus round is never bound to the requester's gas budget
+        and never depends on the requester coming back. Anyone can press the button that
+        moves this record forward, including someone who disagrees with the requester.
+
+        Every argument is checked before anything is written, and a bad one gets the bond
+        back rather than an exception: see `_refund_and_reject` for why a revert here would
+        keep the money. A caller therefore has two success shapes to tell apart, and the
+        prefix on the return value is how. Charging for an input that can never be reviewed
+        would be a fee for nothing, and silently keeping it would be worse.
+        """
+        bond = u256(gl.message.value)
+        reason = self._check_request_review(
+            review_id, governor, proposal_id, creation_block, bond
+        )
+        if reason != "":
+            return self._refund_and_reject(bond, reason)
+
+        gov = str(governor).strip().lower()
 
         self.reviews[review_id] = Review(
             id=review_id,
@@ -3047,8 +3134,9 @@ class IntentGuard(gl.Contract):
             bounty_paid=False,
         )
         self.review_ids.append(review_id)
-        self.veto_index[key] = review_id
+        self.veto_index[self._veto_key(gov, int(proposal_id))] = review_id
         self.review_seq += u256(1)
+        return review_id
 
     @gl.public.write.payable
     def fund_bounty_pool(self) -> None:
@@ -3059,6 +3147,13 @@ class IntentGuard(gl.Contract):
         proposal says and what it does is doing work the DAO wanted done; this is where
         that work gets paid from, and it is separate from the bond so that a payout never
         comes out of another participant's stake.
+
+        The one payable method here that still raises, and the only one for which raising is
+        provably harmless: the single rejection is a zero-value call, and a zero-value call
+        has nothing to strand. Every non-zero amount is accepted unconditionally, so no path
+        through this method takes value and then refuses it. That is why it does not need
+        `_refund_and_reject`, and `test_payable_value.py` asserts the exemption rather than
+        taking it on trust.
         """
         added = int(gl.message.value)
         if added == 0:
@@ -3624,47 +3719,81 @@ rationale: what specifically matched or did not, citing the mandate text and the
     # The rebuttal path — the only way a veto is argued with
     # ==================================================================================
 
+    def _check_rebut(
+        self, rebuttal_id: str, review_id: str, argument_url: str, bond: u256
+    ) -> str:
+        """Everything `rebut` must know before it keeps a bond. "" means proceed.
+
+        This one matters more than it looks. The raising version reached
+        `_require_review` first, which meant a mistyped review id reverted *before*
+        `gl.message.value` had even been read, and the rebuttal bond was stranded by a
+        typo. So the review lookup is reproduced here without raising, matching
+        `_require_review` exactly: the same label in the length message, and the same
+        lookup by the trimmed key.
+        """
+        reason = self._check_len(review_id, MAX_ID_CHARS, "review id")
+        if reason != "":
+            return reason
+        key = str(review_id).strip()
+        if key not in self.reviews:
+            return f"No review with id {key}"
+
+        r = self.reviews[key]
+        if r.status != ST_DIVERGENT or not r.veto_flag:
+            return (
+                f"Review {review_id} is {r.status} and carries no veto; "
+                f"there is nothing to rebut"
+            )
+        if r.rebuttal_id != "":
+            # One rebuttal per review, for good or ill. A second attempt would be a way to
+            # re-ask the adjudicator until the answer changed, and an UNCLEAR outcome
+            # already returns both bonds, so nobody is left paying for the ambiguity.
+            return f"Review {review_id} already has rebuttal {r.rebuttal_id}"
+
+        if r.rebuttal_deadline != "" and self._at_or_after(
+            self._now(), r.rebuttal_deadline
+        ):
+            return (
+                f"The rebuttal window for {review_id} closed at {r.rebuttal_deadline}"
+            )
+
+        reason = self._check_len(rebuttal_id, MAX_ID_CHARS, "rebuttal_id")
+        if reason != "":
+            return reason
+        if self.rebuttals.get(rebuttal_id) is not None:
+            return "rebuttal_id already used"
+
+        reason = self._check_url(argument_url, "argument_url")
+        if reason != "":
+            return reason
+
+        if int(bond) != int(r.bond):
+            return (
+                f"Rebuttal bond must equal the review bond exactly "
+                f"({int(r.bond)} wei); received {int(bond)}"
+            )
+
+        return ""
+
     @gl.public.write.payable
-    def rebut(self, rebuttal_id: str, review_id: str, argument_url: str) -> None:
+    def rebut(self, rebuttal_id: str, review_id: str, argument_url: str) -> str:
         """Stake against a veto and point at a written argument.
 
         The bond must equal the review's bond exactly. Not a minimum, not a multiple: equal.
         An asymmetric stake would make the veto cheap to buy off from whichever side had more
         capital, and the whole point of this step is that both sides are risking the same
         amount on the same question.
+
+        Returns the rebuttal id on acceptance, or a `[REJECTED]` reason with the bond sent
+        back. Nothing is written on the rejecting path.
         """
-        r = self._require_review(review_id)
-        if r.status != ST_DIVERGENT or not r.veto_flag:
-            raise gl.vm.UserError(
-                f"{ERROR_EXPECTED} Review {review_id} is {r.status} and carries no veto; "
-                f"there is nothing to rebut"
-            )
-        if r.rebuttal_id != "":
-            # One rebuttal per review, for good or ill. A second attempt would be a way to
-            # re-ask the adjudicator until the answer changed, and an UNCLEAR outcome
-            # already returns both bonds — nobody is left paying for the ambiguity.
-            raise gl.vm.UserError(
-                f"{ERROR_EXPECTED} Review {review_id} already has rebuttal {r.rebuttal_id}"
-            )
-
-        now = self._now()
-        if r.rebuttal_deadline != "" and self._at_or_after(now, r.rebuttal_deadline):
-            raise gl.vm.UserError(
-                f"{ERROR_EXPECTED} The rebuttal window for {review_id} closed at "
-                f"{r.rebuttal_deadline}"
-            )
-
-        self._require_len(rebuttal_id, MAX_ID_CHARS, "rebuttal_id")
-        if self.rebuttals.get(rebuttal_id) is not None:
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} rebuttal_id already used")
-        self._require_url(argument_url, "argument_url")
-
         bond = u256(gl.message.value)
-        if int(bond) != int(r.bond):
-            raise gl.vm.UserError(
-                f"{ERROR_EXPECTED} Rebuttal bond must equal the review bond exactly "
-                f"({int(r.bond)} wei); received {int(bond)}"
-            )
+        reason = self._check_rebut(rebuttal_id, review_id, argument_url, bond)
+        if reason != "":
+            return self._refund_and_reject(bond, reason)
+
+        r = self.reviews[str(review_id).strip()]
+        now = self._now()
 
         self.rebuttals[rebuttal_id] = Rebuttal(
             id=rebuttal_id,
@@ -3683,6 +3812,7 @@ rationale: what specifically matched or did not, citing the mandate text and the
         r.rebuttal_id = rebuttal_id
         r.contested = True
         self.rebuttal_seq += u256(1)
+        return rebuttal_id
 
     def _consensus_rebuttal(
         self,

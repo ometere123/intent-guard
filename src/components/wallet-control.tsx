@@ -7,6 +7,10 @@ import { shortenHex } from "@/lib/format";
  * The signing control in the masthead. One button and no menu: an injected
  * wallet is the only signer this app accepts, so a chooser would be a chooser
  * with one item in it. Clicking asks the wallet directly.
+ *
+ * The line under the address is the network the wallet reports, not the network this
+ * build targets. Those are usually the same and occasionally are not, and printing the
+ * build's answer either way would be the most misleading thing on the page.
  */
 export function WalletPlate() {
   const wallet = useWallet();
@@ -16,9 +20,20 @@ export function WalletPlate() {
       {wallet.mode === "injected" && wallet.address ? (
         <div className="flex items-stretch border border-[var(--rule-strong)]">
           <span className="flex flex-col items-start px-3 py-1.5">
-            <span className="ig-label">injected wallet</span>
+            <span className={`ig-label ${wallet.canWrite ? "" : "ig-rubric"}`}>
+              {wallet.networkName}
+            </span>
             <span className="ig-calldata-sm">{shortenHex(wallet.address)}</span>
           </span>
+          {wallet.network.kind === "wrong" ? (
+            <button
+              type="button"
+              onClick={() => void wallet.switchNetwork()}
+              className="ig-label border-l border-[var(--rule-strong)] px-3 py-1.5"
+            >
+              Switch network
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={wallet.disconnect}
@@ -37,12 +52,12 @@ export function WalletPlate() {
           {wallet.connecting ? "Waiting for wallet" : "Connect wallet"}
         </button>
       )}
-      {wallet.error ? (
+      {wallet.error || (wallet.mode === "injected" && !wallet.canWrite) ? (
         <p
           role="alert"
           className="ig-verso ig-aside ig-rubric absolute right-0 top-[calc(100%+6px)] z-50 w-[min(90vw,22rem)] border border-[var(--rubric)] p-2"
         >
-          {wallet.error}
+          {wallet.error ?? wallet.writeBlockedReason}
         </p>
       ) : null}
     </div>

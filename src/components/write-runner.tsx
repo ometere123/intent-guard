@@ -5,6 +5,7 @@ import type { CalldataEncodable, TransactionHash } from "genlayer-js/types";
 import { useWallet } from "@/components/wallet-provider";
 import { useTransactions } from "@/components/transaction-provider";
 import { waitAccepted, writeContract } from "@/lib/genlayer/contract";
+import { rejectionReason } from "@/lib/genlayer/returned-value";
 import { IS_LIVE } from "@/lib/genlayer/config";
 import type { OutcomeClass } from "@/lib/lifecycle";
 import type { PhaseKey } from "@/lib/lifecycle";
@@ -129,6 +130,23 @@ export function useWriteRunner() {
         setState({ phase: "consensus-running", hash });
         const outcome = await waitAccepted(client, hash);
         update(hash, "FINALIZED", outcome.executionResult, outcome.executionError);
+
+        // A refused payable call finalizes with GenVM SUCCESS: the contract sends the
+        // bond back and returns `[REJECTED] <reason>` instead of raising, because a
+        // raise would leave the value it had already received sitting in the contract.
+        // The transaction really did succeed, so it stays on the rail as FINALIZED, and
+        // the request it carried really was refused, so this is not reported as settled.
+        const refusal = rejectionReason(outcome.returned);
+        if (refusal) {
+          setState({
+            phase: "idle",
+            hash,
+            outcome: "expected",
+            message: `The contract refused this request and returned the value you sent: ${refusal}`,
+          });
+          return { ok: false as const, hash };
+        }
+
         setState({ phase: "settled", hash });
         return { ok: true as const, hash };
       } catch (error) {
@@ -150,16 +168,18 @@ export function useWriteRunner() {
     run,
     reset,
     /**
-     * The lead sentence of a refusal when a write is attempted with no signer.
-     * "Connect a wallet first" is only useful advice when there is a wallet to
-     * connect, so a browser with no extension at all is told that instead.
-     * Null once a session is open, which is what the call sites test.
+     * The lead sentence of a refusal when a write cannot be signed. "Connect a wallet
+     * first" is only useful advice when there is a wallet to connect, so a browser with
+     * no extension at all is told that instead, and a wallet on the wrong chain is told
+     * which chain it is on rather than being allowed to sign into the void.
+     * Null once a session is open and pointed at this build's network, which is what the
+     * call sites test.
      */
     walletGate:
-      wallet.mode !== "none"
-        ? null
-        : wallet.hasInjected
+      wallet.mode === "none"
+        ? wallet.hasInjected
           ? "Connect a wallet first."
-          : "No wallet extension was detected in this browser, so there is nothing to sign with.",
+          : "No wallet extension was detected in this browser, so there is nothing to sign with."
+        : (wallet.writeBlockedReason ?? null),
   };
 }

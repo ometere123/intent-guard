@@ -2,8 +2,9 @@ import { TransactionStatus } from "genlayer-js/types";
 import type { CalldataEncodable, GenLayerClient, TransactionHash } from "genlayer-js/types";
 import { CONTRACT_ADDRESS, REQUIRED_METHODS } from "./config";
 import { createReadClient } from "./read-client";
-import type { DecodedAction, Rebuttal, Review, VetoState } from "../contract-types";
+import type { ContractStats, DecodedAction, Rebuttal, Review, VetoState } from "../contract-types";
 import { assertSuccessfulGenVMExecution, inspectGenVMExecution } from "./execution";
+import { returnedFromTransaction, type ReturnedValue } from "./returned-value";
 import {
   available,
   isRecord,
@@ -85,6 +86,22 @@ export async function isVetoed(
     }),
     isVetoState,
     "is_vetoed returned a malformed response",
+  );
+}
+
+/**
+ * `stats()` — the contract's own summary of itself. Read for one field in
+ * particular: `min_review_bond_wei` is the bond floor the forms enforce, and it
+ * has to come from here rather than from a constant in the frontend.
+ */
+export async function getStats(): Promise<ReadResult<ContractStats>> {
+  if (!CONTRACT_ADDRESS) return unavailable("No deployed contract address is configured.");
+  const address = CONTRACT_ADDRESS;
+  const client = createReadClient();
+  return performRead(
+    () => client.readContract({ address, functionName: "stats", args: [] }),
+    isStats,
+    "stats returned a malformed response",
   );
 }
 
@@ -189,13 +206,31 @@ function isVetoState(value: unknown): value is VetoState {
   return isRecord(value) && typeof value.vetoed === "boolean" &&
     typeof value.reviewed === "boolean" && hasStrings(value, ["status", "review_id", "note"]);
 }
+/**
+ * `stats()` is validated on the one field the app actually acts on. A u256 arrives
+ * as a decimal string, and anything that is not one is a malformed response rather
+ * than a bond floor of zero.
+ */
+function isStats(value: unknown): value is ContractStats {
+  return (
+    isRecord(value) &&
+    typeof value.min_review_bond_wei === "string" &&
+    /^\d+$/.test(value.min_review_bond_wei)
+  );
+}
 
 /**
  * Waits for finality, then re-reads the transaction and inspects the leader
  * receipt. A receipt arriving is not the same as the contract having succeeded:
  * a rolled-back write still finalizes.
  */
-export type FinalizedExecution = { status: string; executionResult: "SUCCESS" | "ROLLBACK" | "ERROR" | "UNKNOWN"; executionError?: string };
+export type FinalizedExecution = {
+  status: string;
+  executionResult: "SUCCESS" | "ROLLBACK" | "ERROR" | "UNKNOWN";
+  executionError?: string;
+  /** The contract's own return value. A `[REJECTED]` one is a refusal, not a failure. */
+  returned: ReturnedValue;
+};
 
 export async function getFinalizedExecution(client: Client, hash: TransactionHash): Promise<FinalizedExecution> {
   const receipt = await client.waitForTransactionReceipt({
@@ -206,7 +241,11 @@ export async function getFinalizedExecution(client: Client, hash: TransactionHas
   });
   const finalized = await client.getTransaction({ hash });
   const outcome = inspectGenVMExecution(finalized);
-  return { status: String(receipt.statusName ?? receipt.status ?? "FINALIZED"), ...outcome };
+  return {
+    status: String(receipt.statusName ?? receipt.status ?? "FINALIZED"),
+    ...outcome,
+    returned: returnedFromTransaction(finalized),
+  };
 }
 
 export async function waitAccepted(client: Client, hash: TransactionHash) {

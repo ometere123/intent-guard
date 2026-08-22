@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Review } from "@/lib/contract-types";
-import { formatGen, genToWei } from "@/lib/format";
+import { formatGen } from "@/lib/format";
 import { useWriteRunner } from "@/components/write-runner";
 import { Lifecycle } from "@/components/lifecycle";
 
@@ -12,6 +12,18 @@ export function RebutForm({ review, hasOpen }: { review: Review; hasOpen: boolea
   const [url, setUrl] = useState("");
   const busy = state.phase !== "idle";
   const bondText = formatGen(review.bond);
+
+  // The wei this form will send, taken straight from the review record. Deriving it
+  // from `bondText` instead would round-trip through a display string that trims to
+  // four decimals, so a 0.00012 GEN review would be answered with 0.0001 and the
+  // contract would refuse the asymmetry. Parsed once here so the preflight can refuse
+  // an unreadable record before a signature is requested.
+  let bondWei: bigint | null;
+  try {
+    bondWei = BigInt(review.bond || "0");
+  } catch {
+    bondWei = null;
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -23,7 +35,7 @@ export function RebutForm({ review, hasOpen }: { review: Review; hasOpen: boolea
             label: `rebut(${rebuttalId.trim()})`,
             functionName: "rebut",
             args: [rebuttalId.trim(), review.id, url.trim()],
-            value: BigInt(review.bond || "0"),
+            value: bondWei ?? 0n,
             reviewId: review.id,
             preflight: () => {
               if (walletGate) return `${walletGate} A rebuttal is a payable write.`;
@@ -42,12 +54,8 @@ export function RebutForm({ review, hasOpen }: { review: Review; hasOpen: boolea
               if (!/^https?:\/\/\S+\.\S+/.test(url.trim())) {
                 return "An argument URL is required, and it must be fetchable. The adjudicating round renders it; a link nobody can read cannot defeat a finding.";
               }
-              try {
-                if (genToWei(bondText) !== BigInt(review.bond)) {
-                  return "The bond must equal the review bond exactly. Symmetry is what makes the round adversarial rather than a formality.";
-                }
-              } catch {
-                return "The review bond could not be read, so the symmetric bond cannot be computed.";
+              if (bondWei === null || bondWei <= 0n) {
+                return "The review's bond could not be read as an amount, so the symmetric bond cannot be sent. Nothing is signed against a bond this page had to guess at.";
               }
               return null;
             },
@@ -80,7 +88,7 @@ export function RebutForm({ review, hasOpen }: { review: Review; hasOpen: boolea
 
         <div>
           <p className="ig-label">bond</p>
-          <p className="ig-display mt-1">{bondText} GEN</p>
+          <p className="ig-display mt-1">{bondText}</p>
           <p className="ig-aside mt-1 max-w-[46ch] opacity-80">
             Fixed at exactly the reviewer&apos;s bond. Not adjustable, by design.
           </p>
