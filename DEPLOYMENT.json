@@ -6,5 +6,5 @@
   "contractFile": "contracts/IntentGuard.py",
   "contractSha256": "8a2e3f1e7773c44c2ea5b6a54feabb3ea081d3ec230ff23d29b6397cb608e9b3",
   "deployedSourceVerified": true,
-  "verificationNote": "Deployed source retrieved from StudioNet with `genlayer code 0x971406b8F8efFA474F19657d7e55549A17e2b157` on 2026-08-21 and compared byte-for-byte against contracts/IntentGuard.py: 195759 bytes both sides, SHA-256 equal to contractSha256 above. Equality is proven, not assumed."
+  "verificationNote": "Deployed source retrieved from StudioNet with `genlayer code 0x971406b8F8efFA474F19657d7e55549A17e2b157` on 2026-08-21 and compared byte-for-byte against contracts/IntentGuard.py: 195759 bytes both sides, SHA-256 equal to contractSha256 above. Re-retrieved and re-compared on 2026-08-22 after the IG-PROOF-2 lifecycle, with the same result; the contract was never redeployed. Equality is proven, not assumed, and it is a claim about the contract source rather than an audit of validator bytecode."
 }
