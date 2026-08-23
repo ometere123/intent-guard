@@ -34,6 +34,14 @@ async function connect(page: Page, path = "/reviews/new") {
 }
 
 /**
+ * The masthead's own alert, and only it. Next.js mounts a permanently empty
+ * `role="alert"` route announcer on every page, so a bare `getByRole("alert")`
+ * matches two elements: it fails strict mode where a message is expected, and
+ * never reaches zero where absence is expected.
+ */
+const walletAlert = (page: Page) => page.locator('[role="alert"]:not(#__next-route-announcer__)');
+
+/**
  * A request that is valid in every respect except the one under test, so the refusal
  * that comes back is the refusal the test is about.
  */
@@ -82,7 +90,7 @@ test.describe("a wallet on StudioNet", () => {
     await expect(page.getByText("studionet", { exact: true })).toBeVisible();
     await expect(page.getByText(STUB_SHORT)).toBeVisible();
     // Writes are open, so there is nothing to warn about.
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(walletAlert(page)).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Switch network" })).toHaveCount(0);
   });
 
@@ -128,7 +136,7 @@ test.describe("a wallet on StudioNet", () => {
 
     await expect(page.getByRole("button", { name: "Connect wallet" })).toBeVisible();
     await expect(page.getByText(STUB_SHORT)).toHaveCount(0);
-    await expect(page.getByRole("alert")).toHaveText(
+    await expect(walletAlert(page)).toHaveText(
       "The wallet no longer offers an account to this site, so nothing can be signed. Reconnect when you want to.",
     );
   });
@@ -138,7 +146,7 @@ test.describe("a wallet on StudioNet", () => {
     await emitWalletEvent(page, "disconnect", { message: "the extension was locked" });
 
     await expect(page.getByRole("button", { name: "Connect wallet" })).toBeVisible();
-    await expect(page.getByRole("alert")).toHaveText(
+    await expect(walletAlert(page)).toHaveText(
       "The wallet disconnected: the extension was locked",
     );
   });
@@ -165,7 +173,7 @@ test.describe("a wallet that moves off StudioNet mid-session", () => {
     // Never this build's network name while the wallet is elsewhere.
     await expect(page.getByText("wrong network: chain 1")).toBeVisible();
     await expect(page.getByText("studionet", { exact: true })).toHaveCount(0);
-    await expect(page.getByRole("alert")).toHaveText(
+    await expect(walletAlert(page)).toHaveText(
       "The wallet is on chain 1, and this build writes to studionet (chain 61999). Switch the wallet's network to sign anything here.",
     );
 
@@ -185,7 +193,7 @@ test.describe("a wallet that moves off StudioNet mid-session", () => {
 
     await page.getByRole("button", { name: "Switch network" }).click();
     await expect(page.getByText("studionet", { exact: true })).toBeVisible();
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(walletAlert(page)).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Switch network" })).toHaveCount(0);
   });
 });
@@ -199,10 +207,10 @@ test.describe("a wallet on the wrong chain at connect time", () => {
 
     await expect(page.getByText("wrong network: chain 1")).toBeVisible();
     await expect(page.getByText("studionet", { exact: true })).toHaveCount(0);
-    await expect(page.getByRole("alert")).toContainText(
+    await expect(walletAlert(page)).toContainText(
       "This wallet would not switch to studionet (chain 61999)",
     );
-    await expect(page.getByRole("alert")).toContainText(
+    await expect(walletAlert(page)).toContainText(
       "Add the network in the wallet itself, then reconnect.",
     );
   });
@@ -214,7 +222,7 @@ test.describe("a wallet that refuses", () => {
     await page.goto("/reviews/new");
     await page.getByRole("button", { name: "Connect wallet" }).click();
 
-    await expect(page.getByRole("alert")).toHaveText(
+    await expect(walletAlert(page)).toHaveText(
       "The wallet declined the connection request. Nothing was signed.",
     );
     await expect(page.getByRole("button", { name: "Connect wallet" })).toBeVisible();
@@ -226,7 +234,7 @@ test.describe("a wallet that refuses", () => {
     await page.goto("/reviews/new");
     await page.getByRole("button", { name: "Connect wallet" }).click();
 
-    await expect(page.getByRole("alert")).toHaveText("The wallet returned no account.");
+    await expect(walletAlert(page)).toHaveText("The wallet returned no account.");
     await expect(page.getByRole("button", { name: "Disconnect wallet" })).toHaveCount(0);
   });
 });
