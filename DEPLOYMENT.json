@@ -1,10 +1,38 @@
 {
   "network": "studionet",
-  "contract": "0x971406b8F8efFA474F19657d7e55549A17e2b157",
-  "deploymentTransaction": "0x72153b5f2147fd36308324e9f64242e5b49fde8f28d735cb4d944874508e3f51",
-  "gitCommitAtDeployment": "dab05e6",
+  "contract": "0x2DB60126A464f527289ADa029126DaEFb80Bf725",
+  "deploymentTransaction": "0xc6170a11b116bbe8f2cfce1e8512ceb3966ef466d77d53130d70affb16e45653",
+  "deploymentSubmittedAt": "2026-08-23T00:35:30.118823Z",
+  "deploymentSubmittedAtNote": "The timestamp StudioNet records against the deployment transaction itself, which is the only deployment time this repository can prove. Finalisation followed a few minutes later and was observed rather than timestamped, so no separate finalisation time is claimed.",
+  "gitCommitCarryingDeployedSource": "ac39b40206d990d4cf8b6bc1fb34dd4f2dfce161",
+  "gitCommitNote": "This is the commit whose contracts/IntentGuard.py is byte-identical to the source retrieved from the deployed address, not HEAD at the instant of deployment. The deployment was made from the working tree that this commit then recorded, so the commit is minutes younger than the transaction. Parity is the claim; chronology is not.",
   "contractFile": "contracts/IntentGuard.py",
-  "contractSha256": "8a2e3f1e7773c44c2ea5b6a54feabb3ea081d3ec230ff23d29b6397cb608e9b3",
+  "contractSha256": "1e9c0ac3e3d8c7d4f49dd0a830224c5d4e8c9a55390b0173945366ee3f18be1a",
+  "contractBytes": 205762,
   "deployedSourceVerified": true,
-  "verificationNote": "Deployed source retrieved from StudioNet with `genlayer code 0x971406b8F8efFA474F19657d7e55549A17e2b157` on 2026-08-21 and compared byte-for-byte against contracts/IntentGuard.py: 195759 bytes both sides, SHA-256 equal to contractSha256 above. Re-retrieved and re-compared on 2026-08-22 after the IG-PROOF-2 lifecycle, with the same result; the contract was never redeployed. Equality is proven, not assumed, and it is a claim about the contract source rather than an audit of validator bytecode."
+  "verificationNote": "Deployed source retrieved from StudioNet with `genlayer code 0x2DB60126A464f527289ADa029126DaEFb80Bf725` on 2026-08-23 and compared byte-for-byte against contracts/IntentGuard.py with no normalisation of either side: 205762 bytes retrieved, 205762 bytes in the repository, every byte equal, and SHA-256 equal to contractSha256 above. The CLI frames the payload with a `Result:` line and two trailing newlines of its own; those framing bytes are asserted rather than stripped, so a real difference in the source could not hide inside them. The source that produced this deployment is committed unchanged as gitCommitCarryingDeployedSource, so the comparison is against the source this repository records. Equality is proven, not assumed, and it is a claim about the contract source rather than an audit of validator bytecode. `npm run verify:deployment` checks contractSha256 against the file on disk, which catches repository drift; on-chain parity is recorded here.",
+  "historicalDeployments": [
+    {
+      "contract": "0x27C9CB5A68f1EBD7C190b3FA575cc17A15F4D8cC",
+      "deploymentTransaction": "0x5038282e76b905b2e4d0848cc973f887e4cfa5064728a37e539aecffa674ead6",
+      "gitCommitCarryingDeployedSource": "fe34425eb258ef819ddd1fc324cc830e8dc002ab",
+      "contractSha256": "7442221b26d3b97c583aa8993f430fe548d8da7ec6ddac4711c9d4e76e59b8b7",
+      "contractBytes": 201868,
+      "deployedSourceVerified": true,
+      "supersededOn": "2026-08-23",
+      "supersededBecause": "This deployment read the first four bytes of an action's calldata as its function selector. Governor Bravo puts the function name in signatures[i] and the arguments alone in calldatas[i], so for a named action those four bytes are the head of the first argument, and for a leading address they are 0x00000000. Every named action was therefore reported as unnameable, and UNDERSPECIFIED was the only verdict this deployment could reach on a proposal built that way. The defect was found by running Compound proposal 294 against this address for real; the transactions are recorded below and in evidence/studionet.json.",
+      "evidenceNote": "The live transactions recorded against this address prove the behaviour of this superseded contract only. They are kept because they are true, and because two of them are the evidence for the defect that superseded it: request 0x9291d6d19e0eaca99cb0d7e195b462174c05acf7ff2bccd84a6dadc7e9dd3388 and review 0xfe7ff89d47c0de9d3e10aa27a6a67842112de43f03f5203a1f1966bd9d7ce955, which stored UNDERSPECIFIED on a proposal whose eight actions the Governor itself names."
+    },
+    {
+      "contract": "0x971406b8F8efFA474F19657d7e55549A17e2b157",
+      "deploymentTransaction": "0x72153b5f2147fd36308324e9f64242e5b49fde8f28d735cb4d944874508e3f51",
+      "gitCommitCarryingDeployedSource": "dab05e6",
+      "contractSha256": "8a2e3f1e7773c44c2ea5b6a54feabb3ea081d3ec230ff23d29b6397cb608e9b3",
+      "contractBytes": 195759,
+      "deployedSourceVerified": true,
+      "supersededOn": "2026-08-22",
+      "supersededBecause": "Payable methods raised on invalid input after gl.message.value had already arrived. StudioNet does not roll a transfer back when GenVM reverts, so that value stayed in the contract with no way to retrieve it. request_review and rebut now refund and return a [REJECTED] reason instead of raising, which changes the contract source and so required a new deployment.",
+      "evidenceNote": "The live transactions recorded against this address, including the IG-PROOF-1 and IG-PROOF-2 lifecycles, prove the behaviour of this superseded contract only. They are kept because they are true, not because they say anything about the deployment above."
+    }
+  ]
 }

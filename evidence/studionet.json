@@ -1,9 +1,9 @@
 {
-  "$comment": "Machine-readable record of the StudioNet proof runs. Every hash here is full and unabbreviated, and every value was read back from the deployed contract rather than transcribed from a console. Re-read any of it with `genlayer call <contract> <method>`, or through genlayer-js with `node scripts/exercise-studionet.mjs <review-id> <request-tx> <review-tx>`.",
+  "$comment": "Machine-readable record of the StudioNet proof runs. Every hash here is full and unabbreviated, and every value was read back from the deployed contract rather than transcribed from a console. Re-read any of it with `genlayer call <contract> <method>`, or through genlayer-js with `node scripts/exercise-studionet.mjs <review-id> <request-tx> <review-tx>`. The contract has been redeployed twice; this file records the current deployment first and keeps the superseded ones under historicalDeployments, because their transactions prove the behaviour of those contracts and nothing about this one.",
   "network": "studionet",
   "endpoint": "https://studio.genlayer.com/api",
-  "contract": "0x971406b8F8efFA474F19657d7e55549A17e2b157",
-  "recordedAt": "2026-08-22",
+  "contract": "0x2DB60126A464f527289ADa029126DaEFb80Bf725",
+  "recordedAt": "2026-08-23",
   "firstRecordedAt": "2026-08-21",
   "signer": {
     "alias": "termsmet-studionet-submitter",
@@ -11,25 +11,37 @@
     "note": "Obtained through the CLI's own BaseAction/getClient path and the OS-keychain cache populated by `genlayer account unlock`. No key was exported, no wallet or keystore was created, and no password was supplied on a command line or written to a file."
   },
   "deployment": {
-    "transaction": "0x72153b5f2147fd36308324e9f64242e5b49fde8f28d735cb4d944874508e3f51",
-    "gitCommitAtDeployment": "dab05e6",
+    "transaction": "0xc6170a11b116bbe8f2cfce1e8512ceb3966ef466d77d53130d70affb16e45653",
+    "submittedAt": "2026-08-23T00:35:30.118823Z",
+    "consensusStatus": "FINALIZED",
+    "leaderExecutions": ["SUCCESS", "SUCCESS"],
+    "validatorCount": 4,
+    "votes": ["IDLE", "AGREE", "AGREE", "IDLE", "AGREE"],
+    "gitCommitCarryingDeployedSource": "ac39b40206d990d4cf8b6bc1fb34dd4f2dfce161",
+    "gitCommitNote": "The commit whose contracts/IntentGuard.py is byte-identical to the retrieved deployed source, not HEAD at the instant of deployment. The deployment was made from the working tree this commit then recorded, so the commit is minutes younger than the transaction above.",
     "sourcePath": "contracts/IntentGuard.py",
-    "contractSha256": "8a2e3f1e7773c44c2ea5b6a54feabb3ea081d3ec230ff23d29b6397cb608e9b3",
+    "contractSha256": "1e9c0ac3e3d8c7d4f49dd0a830224c5d4e8c9a55390b0173945366ee3f18be1a",
     "deployedSourceVerified": true,
     "parityProof": {
-      "method": "genlayer code 0x971406b8F8efFA474F19657d7e55549A17e2b157",
-      "retrievedOn": "2026-08-21",
-      "reconfirmedOn": "2026-08-22",
-      "localBytes": 195759,
-      "deployedBytes": 195759,
+      "method": "genlayer code 0x2DB60126A464f527289ADa029126DaEFb80Bf725",
+      "retrievedOn": "2026-08-23",
+      "localBytes": 205762,
+      "deployedBytes": 205762,
       "sha256Equal": true,
-      "note": "Re-retrieved and re-hashed on 2026-08-22 after the second proposal lifecycle below. The contract was not redeployed at any point; both hashes still equal contractSha256. This is a claim about the contract source, not an independent audit of validator bytecode."
+      "note": "Compared byte-for-byte with no normalisation of either side. The CLI frames the payload with a `Result:` line and two trailing newlines of its own; those framing bytes are asserted rather than stripped, so a real difference could not hide inside them. This is a claim about the contract source, not an independent audit of validator bytecode."
+    },
+    "whyRedeployed": {
+      "defect": "The previous deployment read the first four bytes of an action's calldata as its function selector. Governor Bravo stores a named action as a function signature in signatures[i] and the arguments alone in calldatas[i], and the Timelock computes bytes4(keccak256(signature)) at execution time. For a named action those first four bytes are therefore the head of the first argument, and for a leading address they are 0x00000000.",
+      "impact": "Every named action was reported as unnameable, so Rule 5 refused to certify an opaque call and UNDERSPECIFIED was the only verdict the contract could reach on a Compound-shaped proposal. The product's central claim, that it names every call, failed on the majority of real Compound proposals.",
+      "howFound": "By running Compound proposal 294 against the previous deployment for real. It stored the rationale 'All eight actions ... are marked as OPAQUE, with the 4-byte selector 0x00000000 being unconfirmed', while the Governor's own getActions names all eight.",
+      "fix": "_bare_actions now derives a named action's selector from the declared signature and _enrich_action treats that declaration as authoritative, recording name_source as 'governor' rather than 'selector' and telling the model which of the two it is looking at. Regression coverage is tests/direct/test_named_actions.py, ten tests, including one end-to-end round that reaches a real verdict with 4byte answering nothing at all.",
+      "provenLive": "IG-PROOF-3 below is the same proposal on the new deployment. All eight actions now resolve with their real function names."
     }
   },
   "app": {
     "url": "https://intent-guard-genlayer.vercel.app",
     "host": "Vercel",
-    "deployedOn": "2026-08-22",
+    "deployedOn": "2026-08-23",
     "wiring": "NEXT_PUBLIC_INTENT_GUARD_CONTRACT is set to the contract above, so the deployed build reads the same StudioNet state recorded in this file rather than the on-disk fixture set. The address is present in the served HTML.",
     "routesVerified": [
       "/",
@@ -37,18 +49,131 @@
       "/guard",
       "/reviews",
       "/reviews/new",
-      "/reviews/IG-PROOF-1",
-      "/reviews/IG-PROOF-2"
+      "/reviews/IG-PROOF-3",
+      "/reviews/IG-PROOF-4"
     ],
     "loginWall": "None. Vercel Deployment Protection was disabled on the project, so every route above answers 200 to an unauthenticated request.",
     "corsVerified": "https://studio.genlayer.com/api answers an OPTIONS preflight from Origin https://intent-guard-genlayer.vercel.app with access-control-allow-origin echoing that exact origin, so the browser's read path is not blocked from the deployed host.",
-    "serverSide": "None. There is no API route, server action, database, indexer, worker or cron -- reads and writes both go from the browser straight to the GenLayer RPC, and every time transition is a permissionless button.",
-    "notVerified": "A headless click-through of the deployed pages. The in-app browser preview on the build machine cannot attach to a remote URL, so the browser data path was verified instead by running the real genlayer-js read path against the live contract and by confirming the CORS preflight above -- not by driving the UI."
+    "serverSide": "None. There is no API route, server action, database, indexer, worker or cron. Reads and writes both go from the browser straight to the GenLayer RPC, and every time transition is a permissionless button.",
+    "walletMode": "Injected only. window.ethereum is the sole signer. There is no generated key, no localStorage key and no local-signer fallback; browser-generated wallets were removed deliberately and are not supported."
   },
   "lifecycles": [
     {
-      "$comment": "First proof run, 2026-08-21. Structured as an array because a second real proposal was put through the same path on 2026-08-22; both are recorded in full rather than the newer one replacing the older.",
-      "reviewId": "IG-PROOF-1",
+      "$comment": "First proof run on the current deployment, 2026-08-23. Compound Governor Bravo, whose proposals use Bravo's named-action shape. This is the proposal that exposed the selector defect on the previous deployment, re-run here against the fix.",
+      "reviewId": "IG-PROOF-3",
+      "governor": "0xc0da02939e1441f497fd74f78ce7decb17b66529",
+      "governorName": "Compound Governor Bravo",
+      "proposalId": 294,
+      "creationBlock": 20422880,
+      "mandateTitle": "[Gauntlet] Rewards Contract Top-Up for Arb and IR Recs for USDT Mainnet and USDC Arbitrum Comets",
+      "transactions": [
+        {
+          "step": "request_review",
+          "hash": "0x89480d17d1a80415525bd221f8a21f1ea29cd4d7ede6afae2bfbcde139f6d45b",
+          "kind": "payable write",
+          "submittedAt": "2026-08-23T00:48:26.660208Z",
+          "valueWei": "1000000000000000",
+          "valueCredited": true,
+          "consensusStatus": "FINALIZED",
+          "genvmResult": "SUCCESS",
+          "leaderExecutions": ["SUCCESS", "SUCCESS"],
+          "validatorCount": 4,
+          "validatorExecutions": {"success": 2, "error": 2},
+          "errorsWereFatal": false,
+          "votes": ["AGREE", "AGREE", "IDLE", "IDLE", "AGREE"],
+          "returnValue": "IG-PROOF-3",
+          "resultingRecordId": "IG-PROOF-3",
+          "statusAfter": "PENDING",
+          "contractBalanceBeforeWei": "0",
+          "contractBalanceAfterWei": "1000000000000000",
+          "expectedDeltaWei": "+1000000000000000",
+          "deltaExplanation": "One open review bond. stats().bounty_pool is 0 and there are no open rebuttals, so balance = open review bonds holds exactly."
+        },
+        {
+          "step": "review",
+          "hash": "0x1f451833f428d138143f2dce894cc36f1ceea72d4ab92cff8e97c99ee5796fc4",
+          "kind": "consensus write",
+          "submittedAt": "2026-08-23T00:50:46.214565Z",
+          "valueWei": "0",
+          "consensusStatus": "FINALIZED",
+          "genvmResult": "SUCCESS",
+          "leaderExecutions": ["SUCCESS", "SUCCESS"],
+          "validatorCount": 4,
+          "validatorExecutions": {"success": 2, "error": 2},
+          "errorsWereFatal": false,
+          "votes": ["AGREE", "IDLE", "AGREE", "IDLE", "AGREE"],
+          "contractBalanceBeforeWei": "1000000000000000",
+          "contractBalanceAfterWei": "0",
+          "expectedDeltaWei": "-1000000000000000",
+          "deltaExplanation": "The review settled and the bond was paid back to the requester, so the open-bond term returns to zero. The outbound transfer applies to the ledger asynchronously: eth_getBalance still read 1000000000000000 at the moment the receipt became readable and read 0 once settlement applied, roughly twenty seconds later. Both readings are recorded rather than only the convenient one."
+        }
+      ],
+      "storedState": {
+        "$comment": "Read back on 2026-08-23 through genlayer-js against the contract above.",
+        "get_review": {
+          "id": "IG-PROOF-3",
+          "status": "UNDERSPECIFIED",
+          "governor": "0xc0da02939e1441f497fd74f78ce7decb17b66529",
+          "proposal_id": "294",
+          "creation_block": "20422880",
+          "requester": "0xB5EcD6dDa36B370aca4af5E2005d8E2Ae89c6db2",
+          "mandate_title": "[Gauntlet] Rewards Contract Top-Up for Arb and IR Recs for USDT Mainnet and USDC Arbitrum Comets",
+          "mandate_digest": "0x818bc02e35bfc9d8b08aea728b8b8c0e40b34988958ed8db2bb4b8774c403041",
+          "actions_digest": "0x7f6b86925bb79dedb5e8d0cf28bfe1a8469620f61b7aff35c55232e06f55753c",
+          "action_count": "8",
+          "divergence_kind": "NONE",
+          "diverging_index": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "veto_flag": false,
+          "undecodable_gate": "",
+          "nondet_ops": "4",
+          "bond": "1000000000000000",
+          "bond_settled": true,
+          "bounty_paid": false,
+          "contested": false,
+          "rebuttal_id": "",
+          "rebuttal_deadline": "",
+          "rebuttable": false,
+          "rereviewable": true,
+          "reviewed_at": "2026-08-23T00:50:46.214565Z",
+          "override_vote_ref": ""
+        },
+        "get_actions": {
+          "storedRows": 8,
+          "allResolved": true,
+          "signatures": [
+            "setBorrowPerYearInterestRateSlopeLow(address,uint64)",
+            "setBorrowPerYearInterestRateSlopeHigh(address,uint64)",
+            "setSupplyPerYearInterestRateSlopeLow(address,uint64)",
+            "setSupplyPerYearInterestRateSlopeHigh(address,uint64)",
+            "deployAndUpgradeTo(address,address)",
+            "_grantComp(address,uint256)",
+            "approve(address,uint256)",
+            "outboundTransferCustomRefund(address,address,address,uint256,uint256,uint256,bytes)"
+          ],
+          "note": "This list is the proof of the fix. On the superseded deployment every one of these eight rows carried selector 0x00000000, resolved false and an empty signature."
+        },
+        "is_vetoed": {
+          "args": ["0xc0Da02939E1441F497fd74F78cE7Decb17B66529", 294],
+          "reviewed": true,
+          "vetoed": false,
+          "status": "UNDERSPECIFIED",
+          "review_id": "IG-PROOF-3",
+          "divergence_kind": "NONE",
+          "override_vote_ref": "",
+          "note": "The mandate was too vague to authorise or exclude what the calls do."
+        }
+      },
+      "verdict": {
+        "recorded": "UNDERSPECIFIED",
+        "wasForced": false,
+        "why": "The round matched the mandate's own figures against the decoded arguments: actions #0 to #3 set the four interest-rate slopes on comet 0x3afdc9... to 0.05, 4, 0.052 and 3.6, exactly the values the text lists, and actions #5 to #7 move 13,000 COMP, exactly the top-up the text authorises. It still declined to certify, because action #7's outboundTransferCustomRefund carries a nested payload whose own function cannot be named, and the mandate's claim is about what arrives on Arbitrum. Under Rule 5 an opaque call blocks ALIGNED without being evidence of divergence, so the verdict is UNDERSPECIFIED.",
+        "consequence": "The contrast with the superseded deployment is the point. There the rationale was 'All eight actions ... are marked as OPAQUE'; here the rationale reasons about named functions and their actual arguments and lands on UNDERSPECIFIED for one specific nested payload. Same proposal, same rules, a real analysis instead of a blanket refusal.",
+        "rationaleStoredOnChain": true
+      }
+    },
+    {
+      "$comment": "Second proof run on the current deployment, 2026-08-23. Uniswap Governor Bravo, whose proposals use Bravo's unnamed-action shape, so this exercises the 4byte-and-keccak path rather than the governor-declared path. Both shapes are covered on the same deployment.",
+      "reviewId": "IG-PROOF-4",
       "governor": "0x408ed6354d4973f66138c91495f2f2fcbd8724c3",
       "governorName": "Uniswap Governor Bravo",
       "proposalId": 100,
@@ -57,37 +182,45 @@
       "transactions": [
         {
           "step": "request_review",
-          "hash": "0x40b50e6a7f7950250e111d5371afa1f3cc6f15fd731ba4405ea4aa94019c237f",
+          "hash": "0x633f4b950fe322cc46547dd5b218afa30796377826096d7a920fba995f5aeae8",
           "kind": "payable write",
+          "submittedAt": "2026-08-23T00:53:52.138556Z",
           "valueWei": "1000000000000000",
+          "valueCredited": true,
           "consensusStatus": "FINALIZED",
-          "genvmResult": "SUCCESS"
+          "genvmResult": "SUCCESS",
+          "leaderExecutions": ["SUCCESS", "SUCCESS"],
+          "validatorCount": 4,
+          "votes": ["AGREE", "AGREE", "IDLE", "IDLE", "AGREE"],
+          "returnValue": "IG-PROOF-4",
+          "resultingRecordId": "IG-PROOF-4",
+          "statusAfter": "PENDING",
+          "contractBalanceBeforeWei": "0",
+          "contractBalanceAfterWei": "1000000000000000",
+          "expectedDeltaWei": "+1000000000000000"
         },
         {
           "step": "review",
-          "hash": "0x8f04f376045240d6be4ac83f31f3e4eda0bea82890aecc2e4bed60a23425dd46",
+          "hash": "0xdbc5ad34bff012b001469f710910413b17cba236d19f42bea1d4038de5408a04",
           "kind": "consensus write",
+          "submittedAt": "2026-08-23T00:54:21.624442Z",
+          "valueWei": "0",
           "consensusStatus": "FINALIZED",
           "genvmResult": "SUCCESS",
-          "validatorExecutions": {
-            "success": 5,
-            "error": 1
-          },
+          "leaderExecutions": ["SUCCESS", "SUCCESS"],
+          "validatorCount": 4,
+          "votes": ["IDLE", "AGREE", "AGREE", "AGREE", "DISAGREE"],
           "errorsWereFatal": false,
-          "votes": [
-            "DISAGREE",
-            "AGREE",
-            "AGREE",
-            "IDLE",
-            "AGREE"
-          ],
-          "note": "One DISAGREE, one IDLE and one non-fatal validator ERROR are recorded exactly as they occurred. The round still finalized and the leader's execution was SUCCESS; nothing here is smoothed over."
+          "note": "One DISAGREE, recorded as it occurred. The round still finalized and the leader's execution was SUCCESS. A unanimous round would be the surprising result here: these validators fetch mainnet calldata independently and decode it under inference.",
+          "contractBalanceBeforeWei": "1000000000000000",
+          "contractBalanceAfterWei": "0",
+          "expectedDeltaWei": "-1000000000000000",
+          "deltaExplanation": "Bond settled and paid back, same asynchronous settlement lag as IG-PROOF-3."
         }
       ],
       "storedState": {
-        "$comment": "Read back with `genlayer call 0x971406b8F8efFA474F19657d7e55549A17e2b157 get_review --args IG-PROOF-1`. Re-read on 2026-08-22 through genlayer-js and unchanged.",
         "get_review": {
-          "id": "IG-PROOF-1",
+          "id": "IG-PROOF-4",
           "status": "UNDERSPECIFIED",
           "governor": "0x408ed6354d4973f66138c91495f2f2fcbd8724c3",
           "proposal_id": "100",
@@ -110,140 +243,83 @@
           "rebuttal_deadline": "",
           "rebuttable": false,
           "rereviewable": true,
-          "reviewed_at": "2026-08-21T13:43:02.958723Z",
+          "reviewed_at": "2026-08-23T00:54:21.624442Z",
           "override_vote_ref": ""
         },
-        "get_actions": {
-          "storedRows": 7
-        },
+        "get_actions": {"storedRows": 7},
         "is_vetoed": {
-          "args": [
-            "0x408ed6354d4973f66138c91495f2f2fcbd8724c3",
-            100
-          ],
+          "args": ["0x408ED6354d4973f66138C91495F2f2FCbd8724C3", 100],
           "reviewed": true,
           "vetoed": false,
           "status": "UNDERSPECIFIED",
-          "review_id": "IG-PROOF-1",
+          "review_id": "IG-PROOF-4",
           "divergence_kind": "NONE",
-          "override_vote_ref": "",
-          "note": "The mandate was too vague to authorise or exclude what the calls do."
+          "override_vote_ref": ""
         }
       },
       "verdict": {
         "recorded": "UNDERSPECIFIED",
         "wasForced": false,
-        "why": "Two of the seven actions could not be named: action #3 has selector 0x76ef8453 and action #4 carries an opaque nested payload with selector 0x00000000. The contract's own rule is that an otherwise-aligned proposal containing an opaque call is UNDERSPECIFIED, not ALIGNED, so the round declined to clear it and declined to veto it.",
-        "consequence": "This proves the PENDING -> UNDERSPECIFIED path with a real bond, real validators and a real mainnet proposal. It does not prove the veto path, because this proposal did not diverge. See notProvenOnChain."
-      }
-    },
-    {
-      "$comment": "Second proof run, 2026-08-22, on a different real Uniswap proposal with a different action shape (9 actions, cross-chain relays) to show the path is not tuned to one input.",
-      "reviewId": "IG-PROOF-2",
-      "governor": "0x408ed6354d4973f66138c91495f2f2fcbd8724c3",
-      "governorName": "Uniswap Governor Bravo",
-      "proposalId": 98,
-      "creationBlock": 25460396,
-      "mandateTitle": "[RFC] Update Crosschain Governance Parameters for Avalanche, MegaETH, Soneium, and X Layer",
-      "transactions": [
-        {
-          "step": "request_review",
-          "hash": "0xba9dc4e66e7ea155c308deb8d43bd32a8c248f8ae369ba6b274e2d14681cedea",
-          "kind": "payable write",
-          "valueWei": "1000000000000000",
-          "valueCredited": true,
-          "consensusStatus": "FINALIZED",
-          "genvmResult": "SUCCESS",
-          "validatorExecutions": {
-            "success": 4,
-            "error": 2
-          },
-          "errorsWereFatal": false,
-          "votes": [
-            "IDLE",
-            "AGREE",
-            "IDLE",
-            "AGREE",
-            "AGREE"
-          ]
-        },
-        {
-          "step": "review",
-          "hash": "0xa78a692eda0f08a0f3aa3c8f1520ae3af224bd4b16b42bef6dd52f4e435bcd2e",
-          "kind": "consensus write",
-          "consensusStatus": "FINALIZED",
-          "genvmResult": "SUCCESS",
-          "validatorExecutions": {
-            "success": 5,
-            "error": 0
-          },
-          "errorsWereFatal": false,
-          "votes": [
-            "AGREE",
-            "DISAGREE",
-            "AGREE",
-            "AGREE"
-          ],
-          "note": "One DISAGREE again, on a round with no failed executions at all. Recorded because a unanimous round would be the surprising result: these validators fetch mainnet calldata independently and decode it under inference."
-        }
-      ],
-      "storedState": {
-        "$comment": "Read back on 2026-08-22 with `node scripts/exercise-studionet.mjs IG-PROOF-2 <request> <review>`, which reads through genlayer-js rather than the CLI.",
-        "get_review": {
-          "id": "IG-PROOF-2",
-          "status": "UNDERSPECIFIED",
-          "governor": "0x408ed6354d4973f66138c91495f2f2fcbd8724c3",
-          "proposal_id": "98",
-          "creation_block": "25460396",
-          "requester": "0xB5EcD6dDa36B370aca4af5E2005d8E2Ae89c6db2",
-          "mandate_title": "[RFC] Update Crosschain Governance Parameters for Avalanche, MegaETH, Soneium, and X Layer",
-          "mandate_digest": "0xca1661a862f5104d8a32d4eb097952302b48aec43e382c0deb9eddbd56221fcb",
-          "actions_digest": "0x973cac9e8dbbc216230c5f06b6741c244a63144a1267433bd1aef2f199575462",
-          "action_count": "9",
-          "divergence_kind": "NONE",
-          "diverging_index": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-          "veto_flag": false,
-          "undecodable_gate": "",
-          "nondet_ops": "11",
-          "bond": "1000000000000000",
-          "bond_settled": true,
-          "bounty_paid": false,
-          "contested": false,
-          "rebuttal_id": "",
-          "rebuttal_deadline": "",
-          "rebuttable": false,
-          "rereviewable": true,
-          "reviewed_at": "2026-08-22T00:44:01.365078Z",
-          "override_vote_ref": ""
-        },
-        "get_actions": {
-          "storedRows": 9
-        },
-        "is_vetoed": {
-          "args": [
-            "0x408ed6354d4973f66138c91495f2f2fcbd8724c3",
-            98
-          ],
-          "reviewed": true,
-          "vetoed": false,
-          "status": "UNDERSPECIFIED",
-          "review_id": "IG-PROOF-2",
-          "divergence_kind": "NONE",
-          "override_vote_ref": "",
-          "note": "The mandate was too vague to authorise or exclude what the calls do."
-        }
-      },
-      "verdict": {
-        "recorded": "UNDERSPECIFIED",
-        "wasForced": false,
-        "why": "The round named seven of the nine actions against the mandate's own text -- actions #0 and #7 as the LayerZero trusted-remote writes for the MegaETH executors, #1/#2/#8 as OmnichainProposalSender relays, #3-#6 as bridge deposits targeting the CrossChainAccount -- and then refused to clear it, because the nested payloads inside the relay and deposit calls are opaque. Its own words: 'the specific instructions being relayed to the remote chains cannot be verified. Per rule 5 ... the verdict is UNDERSPECIFIED.'",
-        "consequence": "A second real proposal, a different action count and a different call shape, reaching the same PENDING -> UNDERSPECIFIED path. It did not diverge, so per instruction the veto/rebuttal/override branches were not driven from it -- forcing a DIVERGENT verdict out of a non-divergent proposal would have been fabrication.",
+        "why": "Action #0 matches the mandate directly through setProtocolFeeController(address), and actions #1 and #6 are createRetryableTicket relays carrying that same nested call. Actions #2, #4 and #5 wrap cargo the round could not examine, and action #3's selector 0x76ef8453 could not be confirmed. The mandate's claim is about what those relays set on remote PoolManagers, so opaque cargo blocks ALIGNED without proving divergence.",
+        "consequence": "A second real proposal on the current deployment, a different Governor, a different action shape and a different naming path, reaching the same PENDING to UNDERSPECIFIED transition. It did not diverge, so the veto, rebuttal and override branches were not driven from it.",
         "rationaleStoredOnChain": true
       }
     }
   ],
+  "invalidPayableProofs": {
+    "$comment": "The invariant these two transactions prove: an invalid payable request creates no state, changes no accounting, and returns the caller's value. StudioNet does not roll a transfer back when GenVM reverts, so the contract cannot rely on a revert to protect the caller. It validates first and, on any user-input failure, refunds and returns a [REJECTED] reason. The on-chain shape of a rejection is therefore FINALIZED with GenVM SUCCESS and a return value beginning [REJECTED], not a failed transaction.",
+    "balanceBeforeBothWei": {
+      "contract": "0",
+      "caller": "168747000000000000000"
+    },
+    "balanceAfterBothWei": {
+      "contract": "0",
+      "caller": "168747000000000000000"
+    },
+    "stateBeforeBoth": {"reviews": "2", "rebuttals": "0", "active_vetoes": "0", "bounty_pool": "0", "balance": "0"},
+    "stateAfterBoth": {"reviews": "2", "rebuttals": "0", "active_vetoes": "0", "bounty_pool": "0", "balance": "0"},
+    "valueStranded": false,
+    "cases": [
+      {
+        "method": "request_review",
+        "failureMode": "unsupported Governor, reached after entry and after the bond had already arrived",
+        "hash": "0xf9d5617ba5d030b549a779b5c3225cf85e7960b5ddb0d7d934bc5ba72f44d69c",
+        "submittedAt": "2026-08-23T00:58:27.440292Z",
+        "args": ["IG-REJECT-1", "0x1111111111111111111111111111111111111111", 1, 1],
+        "valueSentWei": "1000000000000000",
+        "valueCredited": true,
+        "consensusStatus": "FINALIZED",
+        "genvmResult": "SUCCESS",
+        "validatorCount": 4,
+        "validatorExecutions": {"success": 3, "error": 1},
+        "votes": ["AGREE", "IDLE", "AGREE", "IDLE", "AGREE"],
+        "returnValue": "[REJECTED] Unsupported Governor 0x1111111111111111111111111111111111111111. This contract only reviews Governors whose event topic and getActions ABI it has verified: ['0x408ed6354d4973f66138c91495f2f2fcbd8724c3', '0xc0da02939e1441f497fd74f78ce7decb17b66529']",
+        "recordCreated": false,
+        "recordProof": "get_review(\"IG-REJECT-1\") returns {} after the transaction finalized.",
+        "expectedDeltaWei": "0"
+      },
+      {
+        "method": "rebut",
+        "failureMode": "invalid state, the target review is UNDERSPECIFIED and carries no veto, reached after entry and after the bond had already arrived",
+        "hash": "0xf29b0c64e3275ca20d91118c128458570a400ff74c9d93698d7ee7270b18b671",
+        "submittedAt": "2026-08-23T00:59:21.458789Z",
+        "args": ["IG-REBUT-1", "IG-PROOF-3", "https://www.comp.xyz/t/proposal-294-rebuttal"],
+        "valueSentWei": "1000000000000000",
+        "valueCredited": true,
+        "consensusStatus": "FINALIZED",
+        "genvmResult": "SUCCESS",
+        "validatorCount": 4,
+        "votes": ["AGREE", "IDLE", "AGREE", "AGREE", "IDLE"],
+        "returnValue": "[REJECTED] Review IG-PROOF-3 is UNDERSPECIFIED and carries no veto; there is nothing to rebut",
+        "recordCreated": false,
+        "recordProof": "get_rebuttal(\"IG-REBUT-1\") returns {} and IG-PROOF-3 still reads rebuttal_id \"\" and contested false after the transaction finalized.",
+        "expectedDeltaWei": "0"
+      }
+    ],
+    "settlementTiming": "Both after-readings were taken once the outbound refunds had applied to the ledger. _pay emits a transfer, and StudioNet applies it asynchronously, so eth_getBalance can still show the value in the contract at the moment the receipt becomes readable. The figures above are the settled ones and the lag is stated rather than hidden."
+  },
   "stats": {
-    "$comment": "Read live on 2026-08-22 with `stats()`. Reviews is 2, one per lifecycle above.",
+    "$comment": "Read live on 2026-08-23 with stats() after all six transactions above.",
     "reviews": "2",
     "rebuttals": "0",
     "active_vetoes": "0",
@@ -252,66 +328,81 @@
     "min_review_bond_wei": "1000000000000000",
     "rebuttal_window_seconds": "604800",
     "rereview_cooldown_seconds": "86400",
-    "balanceNote": "`balance` is 0 after two complete lifecycles because both reviews settled and both 0.001 GEN bonds were paid back to the requester. The contract holds no stranded value, and the figure staying at 0 across a second lifecycle is itself the check -- a settlement that had silently failed to pay out would have left a balance behind."
+    "balanceNote": "balance is 0 after two complete lifecycles and two funded rejections, because both reviews settled, both bonds were paid back, and neither rejection kept anything. The invariant balance = open review bonds + open rebuttal bonds + bounty pool holds with every term at zero. A settlement or a refund that had silently failed would have left a balance behind."
   },
   "controls": [
     {
       "name": "stock-CLI payable control",
-      "observation": "The same request_review submitted through the unpatched `genlayer write` reached consensus status ACCEPTED while its GenVM execution reverted, and `stats.reviews` stayed 0.",
-      "why": "`genlayer write` hardcodes `value: 0n`, so the bond never arrived and the contract correctly refused the call. Recorded because it is the cleanest available demonstration that consensus status is not application success."
+      "observation": "The same request_review submitted through the unpatched `genlayer write` reached consensus status ACCEPTED while its GenVM execution reverted, and stats.reviews stayed 0.",
+      "why": "`genlayer write` hardcodes value: 0n, so the bond never arrived and the contract correctly refused the call. Recorded because it is the cleanest available demonstration that consensus status is not application success."
     }
   ],
   "toolingNote": {
-    "limitation": "GenLayer CLI 0.39.2 `genlayer write` hardcodes `value: 0n` and has no option for `gl.message.value`. `--fee-value` is not it -- `parseTransactionFees` assigns that to the nested `fees.feeValue`, while application value is the top-level `value` parameter of `writeContract`.",
-    "resolution": "The payable `request_review` writes above were sent from a separate local clone of genlayer-cli at tag v0.39.2 with a one-field `--value-wei` addition that forwards the amount to the `value` parameter GenLayerJS already accepts. That clone is not part of this repository and no contract change was needed.",
-    "notAWorkaroundOn": "Signing. The patched clone uses the same BaseAction/getClient path and the same OS-keychain cache as the stock CLI."
-  },
-  "verifierFixes": {
-    "$comment": "Three genuine defects found in scripts/exercise-studionet.mjs while re-running it on 2026-08-22, recorded because they mean the earlier `verify:studionet` claim had never actually passed. All three are in the verifier, not the contract; no contract change was needed and none was made. `verify:studionet` is not part of the `npm run verify` chain, which is why CI never surfaced them.",
-    "fixes": [
-      {
-        "defect": "The FINALIZED assertion read `tx.status_name`, a field the RPC never sends. It fell through to the raw `status`, which is a numeric enum ordinal (7 = FINALIZED), so the check compared 7 against the string \"FINALIZED\" and could never pass.",
-        "fix": "Read the camelCase `statusName` that genlayer-js decorates the payload with, and refuse a non-string status outright rather than stringifying the ordinal into a mismatch.",
-        "consequence": "The script now exits 0 for both lifecycles above. Before the fix it exited non-zero for IG-PROOF-1 as well, so this is not a new-proof-only issue and is not presented as one."
-      },
-      {
-        "defect": "The `is_vetoed` read passed a hardcoded `[\"0x408ED6354d4973f66138C91495F2f2FCbd8724C3\", 100n]`, so for any review id other than IG-PROOF-1 it silently reported a different proposal's veto state.",
-        "fix": "Derive the pair from the review the script just read: `[review.governor, BigInt(review.proposal_id)]`, with the non-PENDING guard moved above the veto read so a missing review yields a clear error instead of a property access on null."
-      },
-      {
-        "defect": "The script read NEXT_PUBLIC_INTENT_GUARD_CONTRACT straight from process.env with no .env.local loader, while its sibling scripts/verify-schema.mjs in the same directory already had one. The commands documented in README.md and docs/SUBMISSION.md therefore threw `NEXT_PUBLIC_INTENT_GUARD_CONTRACT is not set` and exited 1 before opening a socket; they only worked in a shell that had exported the address by hand.",
-        "fix": "Copied the sibling script's ten-line .env.local loader in verbatim rather than adding a dependency. Both documented commands now exit 0 exactly as written.",
-        "consequence": "Recourse's scripts/exercise-studionet.mjs had the identical gap against NEXT_PUBLIC_RECOURSE_CONTRACT and was fixed the same way; both of its documented commands also exit 0 as written."
-      }
-    ]
+    "limitation": "GenLayer CLI 0.39.2 `genlayer write` hardcodes value: 0n and has no option for gl.message.value. `--fee-value` is not it: parseTransactionFees assigns that to the nested fees.feeValue, while application value is the top-level value parameter of writeContract.",
+    "resolution": "The payable writes above were sent from a separate local clone of genlayer-cli at tag v0.39.2 with a one-field --value-wei addition that forwards the amount to the value parameter GenLayerJS already accepts. That clone is not part of this repository and no contract change was needed for it.",
+    "notAWorkaroundOn": "Signing. The patched clone uses the same BaseAction/getClient path and the same OS-keychain cache as the stock CLI. No key was read, exported or logged."
   },
   "ci": {
     "provider": "GitHub Actions",
     "workflow": "verify",
-    "jobs": [
-      "offline"
-    ],
-    "os": [
-      "ubuntu-latest"
-    ],
-    "releaseRun": {
-      "runId": "32548068832",
-      "commit": "ea4532d85a051bceab6431a82da3c8ec26ec5d53",
-      "conclusion": "success",
-      "note": "The run over the commit that introduced IG-PROOF-2, the three verifier fixes and this evidence file. Green on 2026-08-22."
+    "jobs": ["offline"],
+    "os": ["ubuntu-latest"],
+    "testCounts": {
+      "direct": 67,
+      "frontend": 81,
+      "note": "tests/direct/test_named_actions.py adds the ten regression tests for the selector defect."
     },
-    "auditMilestoneRun": {
-      "runId": "32508763523",
-      "commit": "0b07fa471edc4f37a3085d9bf44bf058cbaed11b",
-      "conclusion": "success",
-      "npmCiAudit": "found 0 vulnerabilities",
-      "note": "Recorded separately because its npm ci step is the first to report 0 vulnerabilities in place of the 3 high-severity findings."
-    },
-    "note": "CI runs on every push. The commit that adds this block is therefore validated by a later run than the releaseRun named here; that later run is the one the release tag points at. Both are stated rather than collapsing them into a single unfalsifiable claim."
+    "note": "CI runs on every push, so the commit that adds this block is validated by a later run than any run this block could name. The final run IDs are recorded in docs/SUBMISSION.md against the exact HEAD they ran on."
   },
   "notProvenOnChain": [
-    "The veto path. A veto needs a live mainnet proposal whose executable calls genuinely contradict its own published text. Two real Uniswap proposals were put through the full request_review -> review path and neither diverged -- both returned UNDERSPECIFIED because of opaque nested calldata, which is the contract's own rule. A DIVERGENT verdict was not forced out of either one. Covered instead by deterministic tests in tests/direct/test_lifecycle.py, which drive DIVERGENT rounds under mocked inference over ABI bytes the test file encodes itself.",
-    "The rebuttal and governance-override branches, for the same reason -- they can only be reached from a standing veto, and no live round produced one.",
-    "A headless click-through of the deployed frontend. The public URL is recorded under `app` and every route was confirmed to answer 200 unauthenticated, but the in-app browser preview on the build machine cannot attach to a remote URL, so the UI was not driven by a script. The data path behind it was verified directly instead: the CORS preflight from the deployed origin, and the same genlayer-js reads the browser makes run against the live contract."
+    "The veto path. NOT PROVEN LIVE. A veto needs a live mainnet proposal whose executable calls genuinely contradict its own published text. Four real proposals have now been put through the full request_review to review path across deployments, and none diverged. Twenty-three further Compound proposals were screened by action shape and five read in depth; in every one the mandate matched its actions. A DIVERGENT verdict was not forced out of any of them. Covered instead by deterministic tests in tests/direct/test_lifecycle.py and tests/direct/test_named_actions.py, which drive DIVERGENT rounds under mocked inference over ABI bytes the test files encode themselves.",
+    "The rebuttal acceptance path. NOT PROVEN LIVE. Only the rejecting branch of rebut has run on chain, in invalidPayableProofs above, because acceptance can only be reached from a standing veto and no live round produced one.",
+    "The governance-override branch. NOT PROVEN LIVE, for the same reason.",
+    "The bounty payout path. NOT PROVEN LIVE. bounty_pool has been 0 for the life of every deployment, so no payout could occur."
+  ],
+  "historicalDeployments": [
+    {
+      "$comment": "Superseded on 2026-08-23. These transactions prove the behaviour of this contract only. They are kept because they are true, and because two of them are the evidence for the defect that superseded it.",
+      "contract": "0x27C9CB5A68f1EBD7C190b3FA575cc17A15F4D8cC",
+      "deploymentTransaction": "0x5038282e76b905b2e4d0848cc973f887e4cfa5064728a37e539aecffa674ead6",
+      "contractSha256": "7442221b26d3b97c583aa8993f430fe548d8da7ec6ddac4711c9d4e76e59b8b7",
+      "supersededBecause": "The selector defect described under deployment.whyRedeployed.",
+      "defectEvidence": {
+        "reviewId": "IG-PROOF-3",
+        "proposal": "Compound Governor Bravo 294",
+        "requestTx": "0x9291d6d19e0eaca99cb0d7e195b462174c05acf7ff2bccd84a6dadc7e9dd3388",
+        "reviewTx": "0xfe7ff89d47c0de9d3e10aa27a6a67842112de43f03f5203a1f1966bd9d7ce955",
+        "storedStatus": "UNDERSPECIFIED",
+        "storedRationaleExcerpt": "All eight actions ... are marked as OPAQUE, with the 4-byte selector 0x00000000 being unconfirmed",
+        "whyThatIsWrong": "The Governor's own getActions names all eight functions. The contract could not see them because it was looking for the selector in the wrong place."
+      }
+    },
+    {
+      "$comment": "Superseded on 2026-08-22. Its two lifecycles, IG-PROOF-1 and IG-PROOF-2, are recorded here in full rather than deleted, but they prove the behaviour of this contract and say nothing about the current one.",
+      "contract": "0x971406b8F8efFA474F19657d7e55549A17e2b157",
+      "deploymentTransaction": "0x72153b5f2147fd36308324e9f64242e5b49fde8f28d735cb4d944874508e3f51",
+      "contractSha256": "8a2e3f1e7773c44c2ea5b6a54feabb3ea081d3ec230ff23d29b6397cb608e9b3",
+      "supersededBecause": "Payable methods raised on invalid input after gl.message.value had already arrived. StudioNet does not roll a transfer back when GenVM reverts, so that value stayed in the contract with no way to retrieve it.",
+      "lifecycles": [
+        {
+          "reviewId": "IG-PROOF-1",
+          "governorName": "Uniswap Governor Bravo",
+          "proposalId": 100,
+          "requestTx": "0x40b50e6a7f7950250e111d5371afa1f3cc6f15fd731ba4405ea4aa94019c237f",
+          "reviewTx": "0x8f04f376045240d6be4ac83f31f3e4eda0bea82890aecc2e4bed60a23425dd46",
+          "storedStatus": "UNDERSPECIFIED",
+          "actionCount": 7
+        },
+        {
+          "reviewId": "IG-PROOF-2",
+          "governorName": "Uniswap Governor Bravo",
+          "proposalId": 98,
+          "requestTx": "0xba9dc4e66e7ea155c308deb8d43bd32a8c248f8ae369ba6b274e2d14681cedea",
+          "reviewTx": "0xa78a692eda0f08a0f3aa3c8f1520ae3af224bd4b16b42bef6dd52f4e435bcd2e",
+          "storedStatus": "UNDERSPECIFIED",
+          "actionCount": 9
+        }
+      ]
+    }
   ]
 }

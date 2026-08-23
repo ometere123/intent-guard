@@ -21,38 +21,47 @@ Intent Guard retrieves both halves from authoritative sources during GenLayer co
 
 Live app: **https://intent-guard-genlayer.vercel.app**, wired to the StudioNet contract below, so it reads the same reviews recorded here. There is no backend: no API route, database, indexer, worker or cron. Reads and writes go from the browser straight to the GenLayer RPC, and every time transition is a button anyone can press.
 
-StudioNet contract: `0x971406b8F8efFA474F19657d7e55549A17e2b157`  
-Deployment transaction: `0x72153b5f2147fd36308324e9f64242e5b49fde8f28d735cb4d944874508e3f51`
+StudioNet contract: `0x2DB60126A464f527289ADa029126DaEFb80Bf725`  
+Deployment transaction: `0xc6170a11b116bbe8f2cfce1e8512ceb3966ef466d77d53130d70affb16e45653`
 
-The frontend switches entirely to live state when the deployed address and live data mode are configured. Deployed-source equality is proven, not assumed: the source was retrieved from StudioNet with `genlayer code 0x971406b8F8efFA474F19657d7e55549A17e2b157` and compared byte-for-byte against `contracts/IntentGuard.py`, which is 195,759 bytes and SHA-256 `8a2e3f1e7773c44c2ea5b6a54feabb3ea081d3ec230ff23d29b6397cb608e9b3` on both sides. Retrieved 2026-08-21 and re-confirmed 2026-08-22 after the second proof run below; the contract was never redeployed.
+The frontend switches entirely to live state when the deployed address and live data mode are configured. Deployed-source equality is proven, not assumed: the source was retrieved from StudioNet with `genlayer code 0x2DB60126A464f527289ADa029126DaEFb80Bf725` and compared byte-for-byte against `contracts/IntentGuard.py`, which is 205,762 bytes and SHA-256 `1e9c0ac3e3d8c7d4f49dd0a830224c5d4e8c9a55390b0173945366ee3f18be1a` on both sides. Retrieved 2026-08-23. Two earlier deployments were superseded and are listed as historical in [`DEPLOYMENT.json`](./DEPLOYMENT.json); their transactions prove their own behaviour and nothing about this one.
 
 ### Proven on StudioNet
 
-Two bonded reviews against Uniswap Governor Bravo `0x408ed6354d4973f66138c91495f2f2fcbd8724c3`, on two different real mainnet proposals with different action shapes. Full hashes and every stored field: [`evidence/studionet.json`](./evidence/studionet.json) and [`docs/SUBMISSION.md`](./docs/SUBMISSION.md).
+Four bonded reviews across two real Governors, plus two funded rejections. Full hashes, every stored field, and every balance reading: [`evidence/studionet.json`](./evidence/studionet.json) and [`docs/SUBMISSION.md`](./docs/SUBMISSION.md).
 
-#### `IG-PROOF-1`: proposal `100`, creation block `25554834`
-
-| Step | Transaction | Result |
-| --- | --- | --- |
-| `request_review` (payable, 0.001 GEN bond) | `0x40b50e6a7f7950250e111d5371afa1f3cc6f15fd731ba4405ea4aa94019c237f` | FINALIZED + GenVM `SUCCESS` |
-| `review` (consensus) | `0x8f04f376045240d6be4ac83f31f3e4eda0bea82890aecc2e4bed60a23425dd46` | FINALIZED + GenVM `SUCCESS`; 5 validator executions SUCCESS, 1 non-fatal ERROR; votes `DISAGREE, AGREE, AGREE, IDLE, AGREE` |
-
-The stored result is `UNDERSPECIFIED` with `action_count: 7`, `nondet_ops: 10`, `divergence_kind: NONE`, `veto_flag: false` and `bond_settled: true`. Five of the seven actions match the mandate `Activate v4 Protocol Fees (Part 1/2)`, and two carry selectors nobody could name (`0x76ef8453` and an opaque nested `0x00000000`), which under the contract's own rule forbids clearing the proposal *and* forbids vetoing it. `is_vetoed` returns `reviewed: true`, `vetoed: false`, `review_id: IG-PROOF-1`.
-
-#### `IG-PROOF-2`: proposal `98`, creation block `25460396`
+#### `IG-PROOF-3`: Compound Governor Bravo, proposal `294`, creation block `20422880`
 
 | Step | Transaction | Result |
 | --- | --- | --- |
-| `request_review` (payable, 0.001 GEN bond) | `0xba9dc4e66e7ea155c308deb8d43bd32a8c248f8ae369ba6b274e2d14681cedea` | FINALIZED + GenVM `SUCCESS`; `value_credited: true`; 4 executions SUCCESS, 2 non-fatal ERROR; votes `IDLE, AGREE, IDLE, AGREE, AGREE` |
-| `review` (consensus) | `0xa78a692eda0f08a0f3aa3c8f1520ae3af224bd4b16b42bef6dd52f4e435bcd2e` | FINALIZED + GenVM `SUCCESS`; 5 executions SUCCESS, 0 ERROR; votes `AGREE, DISAGREE, AGREE, AGREE` |
+| `request_review` (payable, 0.001 GEN bond) | `0x89480d17d1a80415525bd221f8a21f1ea29cd4d7ede6afae2bfbcde139f6d45b` | FINALIZED + GenVM `SUCCESS`; `value_credited: true`; returned `IG-PROOF-3`; votes `AGREE, AGREE, IDLE, IDLE, AGREE` |
+| `review` (consensus) | `0x1f451833f428d138143f2dce894cc36f1ceea72d4ab92cff8e97c99ee5796fc4` | FINALIZED + GenVM `SUCCESS`; 4 validators, 2 SUCCESS and 2 non-fatal ERROR; votes `AGREE, IDLE, AGREE, IDLE, AGREE` |
 
-Mandate `[RFC] Update Crosschain Governance Parameters for Avalanche, MegaETH, Soneium, and X Layer`, digest `0xca1661a862f5104d8a32d4eb097952302b48aec43e382c0deb9eddbd56221fcb`; actions digest `0x973cac9e8dbbc216230c5f06b6741c244a63144a1267433bd1aef2f199575462`. Stored result `UNDERSPECIFIED` with `action_count: 9`, `nondet_ops: 11`, `divergence_kind: NONE`, `bond_settled: true`, `reviewed_at: 2026-08-22T00:44:01.365078Z`; `is_vetoed` returns `review_id: IG-PROOF-2`.
+Mandate `[Gauntlet] Rewards Contract Top-Up for Arb and IR Recs for USDT Mainnet and USDC Arbitrum Comets`, digest `0x818bc02e35bfc9d8b08aea728b8b8c0e40b34988958ed8db2bb4b8774c403041`; actions digest `0x7f6b86925bb79dedb5e8d0cf28bfe1a8469620f61b7aff35c55232e06f55753c`. Stored result `UNDERSPECIFIED` with `action_count: 8`, `nondet_ops: 4`, `divergence_kind: NONE`, `veto_flag: false`, `bond_settled: true`.
 
-This one is worth reading rather than counting. The round named seven of the nine calls against the mandate's own text: actions #0 and #7 as the LayerZero trusted-remote writes for the MegaETH executors, #1/#2/#8 as `OmnichainProposalSender.execute` relays, and #3–#6 as bridge `depositTransaction` calls targeting the CrossChainAccount. It then refused to clear it anyway, because the payloads nested inside those relays are opaque: *"the specific instructions being relayed to the remote chains cannot be verified."* A reviewer that wanted to look decisive would have called this ALIGNED. The rationale is stored on-chain, so that decision is auditable rather than asserted.
+This proposal is here because it caught a real defect. Compound builds each action as a function *name* in `signatures[i]` with the arguments alone in `calldatas[i]`, and the Timelock hashes that name at execution time. An earlier deployment read the first four bytes of `calldatas[i]` as the selector, which on a leading `address` argument is `0x00000000`, so it reported all eight of these actions as unnameable and `UNDERSPECIFIED` was the only verdict it could reach. On this deployment `get_actions` names all eight: the four interest-rate setters, `deployAndUpgradeTo`, `_grantComp`, `approve` and `outboundTransferCustomRefund`. The round then matched the mandate's own figures against the decoded arguments, 0.05 / 4 / 0.052 / 3.6 on the rate slopes and 13,000 COMP on the top-up, and still declined to certify, because action #7's nested bridge payload cannot be named and the mandate's claim is about what arrives on Arbitrum. Same proposal, same rules, a real analysis instead of a blanket refusal.
 
-`stats` reads `reviews: 2` and `balance: 0`, so both bonds were genuinely returned. A settlement that had silently failed to pay out would have left a balance behind.
+#### `IG-PROOF-4`: Uniswap Governor Bravo, proposal `100`, creation block `25554834`
 
-The veto, rebuttal and override branches are **not** proven on StudioNet. Reaching them needs a live mainnet proposal whose calls contradict its own published text; two real proposals were put through the full path and neither diverged, and a `DIVERGENT` verdict was not forced out of either. They are proven deterministically in `tests/direct/test_lifecycle.py` instead.
+| Step | Transaction | Result |
+| --- | --- | --- |
+| `request_review` (payable, 0.001 GEN bond) | `0x633f4b950fe322cc46547dd5b218afa30796377826096d7a920fba995f5aeae8` | FINALIZED + GenVM `SUCCESS`; `value_credited: true`; returned `IG-PROOF-4`; votes `AGREE, AGREE, IDLE, IDLE, AGREE` |
+| `review` (consensus) | `0xdbc5ad34bff012b001469f710910413b17cba236d19f42bea1d4038de5408a04` | FINALIZED + GenVM `SUCCESS`; votes `IDLE, AGREE, AGREE, AGREE, DISAGREE` |
+
+Mandate `Activate v4 Protocol Fees (Part 1/2)`, digest `0x4fc50677e537180b70ead45b970ce8174b5b8a6d9ce96a3d22605c8ae57d5562`; actions digest `0xab80c88729455dddc3e343fb10194a2440224d1241d5fab7ce7b002c6abc8853`. Stored result `UNDERSPECIFIED` with `action_count: 7`, `nondet_ops: 10`, `bond_settled: true`. Uniswap uses Bravo's unnamed-action shape, so this round exercised the 4-byte-and-keccak naming path rather than the Governor-declared one; both shapes are therefore proven on the same deployment. Action #0 matches `setProtocolFeeController(address)` directly, #1 and #6 relay that same call, and #2/#3/#4/#5 carry cargo the round could not examine. One `DISAGREE` is recorded as it occurred: these validators fetch mainnet calldata independently and decode it under inference, so a unanimous round would be the surprising result.
+
+#### Invalid funded calls cannot strand value
+
+| Call | Transaction | Result |
+| --- | --- | --- |
+| `request_review` with an unsupported Governor, 0.001 GEN attached | `0xf9d5617ba5d030b549a779b5c3225cf85e7960b5ddb0d7d934bc5ba72f44d69c` | FINALIZED + GenVM `SUCCESS`, returning `[REJECTED] Unsupported Governor 0x1111…` |
+| `rebut` against a review that carries no veto, 0.001 GEN attached | `0xf29b0c64e3275ca20d91118c128458570a400ff74c9d93698d7ee7270b18b671` | FINALIZED + GenVM `SUCCESS`, returning `[REJECTED] Review IG-PROOF-3 is UNDERSPECIFIED and carries no veto; there is nothing to rebut` |
+
+Both failed after entry, with the value already credited to the contract. Neither created a record: `get_review("IG-REJECT-1")` and `get_rebuttal("IG-REBUT-1")` both read empty, `IG-PROOF-3` still reads `rebuttal_id: ""` and `contested: false`, and `stats` still reads `reviews: 2, rebuttals: 0`. The contract balance was `0` before both and `0` after both, and the caller's balance was `168747000000000000000` wei before both and `168747000000000000000` wei after both. StudioNet does not roll a transfer back when GenVM reverts, so a rejection here is a successful execution that refunds and returns a reason, not a failed transaction.
+
+`stats` reads `reviews: 2` and `balance: 0` after all six transactions, so both bonds were genuinely returned and neither rejection kept anything. The invariant `balance = open review bonds + open rebuttal bonds + bounty pool` holds with every term at zero. The refunds apply to the ledger asynchronously, so every balance-after figure above was read once settlement had applied, roughly twenty seconds after the receipt became readable; both readings are in the evidence file rather than only the convenient one.
+
+The veto, rebuttal-acceptance, override and bounty-payout branches are **NOT PROVEN LIVE**. Reaching a veto needs a live mainnet proposal whose calls contradict its own published text. Four real proposals have gone through the full path and none diverged; twenty-three further Compound proposals were screened by action shape and five read in depth, and in every one the mandate matched its actions. No `DIVERGENT` verdict was forced out of any of them. Those branches are proven deterministically in `tests/direct/test_lifecycle.py` and `tests/direct/test_named_actions.py` instead.
 
 ### Main methods
 
@@ -93,7 +102,7 @@ Create `.env.local` from `.env.example`:
 ```bash
 NEXT_PUBLIC_GENLAYER_CHAIN=studionet
 NEXT_PUBLIC_GENLAYER_ENDPOINT=https://studio.genlayer.com/api
-NEXT_PUBLIC_INTENT_GUARD_CONTRACT=0x971406b8F8efFA474F19657d7e55549A17e2b157
+NEXT_PUBLIC_INTENT_GUARD_CONTRACT=0x2DB60126A464f527289ADa029126DaEFb80Bf725
 NEXT_PUBLIC_INTENT_GUARD_DATA=live
 ```
 
@@ -123,23 +132,23 @@ npm run verify:deployment
 npm run verify:schema   # requires a deployed address
 ```
 
-The repository includes production-module transaction/read regressions, direct state-machine tests, and a decoder corpus that executes the deterministic decoder embedded in `contracts/IntentGuard.py`. The decoder suite binds itself to `decoder_fingerprint()` so a changed embedded primitive fails review rather than drifting silently. `python -m pytest tests/direct -q` runs 26 tests, 18 of which drive the veto, rebuttal, override and settlement branches the StudioNet proofs could not reach. The deployed contract's `keccak_self_test` and `decoder_self_test` both returned `ok: true`; schema verification exposed all 20 public methods.
+The repository includes production-module transaction/read regressions, direct state-machine tests, and a decoder corpus that executes the deterministic decoder embedded in `contracts/IntentGuard.py`. The decoder suite binds itself to `decoder_fingerprint()` so a changed embedded primitive fails review rather than drifting silently. `python -m pytest tests/direct -q` runs 67 tests, including the ones that drive the veto, rebuttal, override and settlement branches the StudioNet proofs could not reach, and the ten in `tests/direct/test_named_actions.py` that pin the Governor-declared action shape whose mishandling forced the 2026-08-23 redeployment. The deployed contract's `keccak_self_test` and `decoder_self_test` both returned `ok: true`; schema verification exposed all 20 public methods.
 
 `scripts/exercise-studionet.mjs` re-verifies a funded request/review walk from its transaction hashes and refuses to continue unless each finalized write contains explicit GenVM `SUCCESS`. It reads through `genlayer-js`, the same library and encoding path the browser uses, so a pass is a statement about the frontend's own route and not only about the CLI's:
 
 ```bash
-node scripts/exercise-studionet.mjs IG-PROOF-1 \
-  0x40b50e6a7f7950250e111d5371afa1f3cc6f15fd731ba4405ea4aa94019c237f \
-  0x8f04f376045240d6be4ac83f31f3e4eda0bea82890aecc2e4bed60a23425dd46
+node scripts/exercise-studionet.mjs IG-PROOF-3 \
+  0x89480d17d1a80415525bd221f8a21f1ea29cd4d7ede6afae2bfbcde139f6d45b \
+  0x1f451833f428d138143f2dce894cc36f1ceea72d4ab92cff8e97c99ee5796fc4
 ```
 
 ```bash
-node scripts/exercise-studionet.mjs IG-PROOF-2 \
-  0xba9dc4e66e7ea155c308deb8d43bd32a8c248f8ae369ba6b274e2d14681cedea \
-  0xa78a692eda0f08a0f3aa3c8f1520ae3af224bd4b16b42bef6dd52f4e435bcd2e
+node scripts/exercise-studionet.mjs IG-PROOF-4 \
+  0x633f4b950fe322cc46547dd5b218afa30796377826096d7a920fba995f5aeae8 \
+  0xdbc5ad34bff012b001469f710910413b17cba236d19f42bea1d4038de5408a04
 ```
 
-Both exit 0 as of 2026-08-22, but only after three real defects in the script itself were fixed that day, and the honest version of that sentence is that this check had never actually passed before. Its FINALIZED assertion read `tx.status_name`, a field the RPC never sends; it fell through to the raw `status`, which is a numeric enum ordinal, so the comparison was `7 !== "FINALIZED"` and could never succeed. Its `is_vetoed` read used a hardcoded governor/proposal pair, so for any id but the first it would have reported a different proposal's veto state; both are now derived from the review the script just read. Third, it took the contract address from `process.env` without loading `.env.local`, unlike its sibling `scripts/verify-schema.mjs`, so the two commands exactly as printed above aborted on a missing environment variable before reaching the network, and only worked for a shell that had exported one by hand. It now uses the same loader the sibling script already had. None of the three was a defect in the contract and no contract change was made. `verify:studionet` is not part of the `npm run verify` chain, which is why CI never surfaced them; that is recorded rather than quietly corrected.
+Both exit 0 as of 2026-08-23, but only after three real defects in the script itself were fixed on 2026-08-22, and the honest version of that sentence is that this check had never actually passed before. Its FINALIZED assertion read `tx.status_name`, a field the RPC never sends; it fell through to the raw `status`, which is a numeric enum ordinal, so the comparison was `7 !== "FINALIZED"` and could never succeed. Its `is_vetoed` read used a hardcoded governor/proposal pair, so for any id but the first it would have reported a different proposal's veto state; both are now derived from the review the script just read. Third, it took the contract address from `process.env` without loading `.env.local`, unlike its sibling `scripts/verify-schema.mjs`, so the two commands exactly as printed above aborted on a missing environment variable before reaching the network, and only worked for a shell that had exported one by hand. It now uses the same loader the sibling script already had. None of the three was a defect in the contract and no contract change was made. `verify:studionet` is not part of the `npm run verify` chain, which is why CI never surfaced them; that is recorded rather than quietly corrected.
 
 `npm audit` and `npm audit --omit=dev` both report 0 vulnerabilities. Three high-severity transitive findings surfaced earlier through `next 16.2.12` and were resolved by an explicit reviewed `next@16.3.2` upgrade rather than `npm audit fix --force`; the full determination is in [`docs/SUBMISSION.md`](./docs/SUBMISSION.md#dependency-audit). `eslint-config-next` was left behind at `16.2.12` by that upgrade and has since been pinned to `16.3.2`, so the lint config and the framework it lints for are the same release.
 
