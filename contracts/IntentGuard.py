@@ -2434,12 +2434,30 @@ def _bare_actions(targets, values, signatures, calldatas) -> list:
     out = []
     for i in range(count):
         raw = _strip_0x(calldatas[i]).lower()
+        declared = str(signatures[i]).strip()
+        if declared == "":
+            # No name given, so the payload carries its own selector and only 4byte plus a
+            # keccak check can say what it means. Every Uniswap action measured is this shape.
+            selector = ("0x" + raw[:8]) if len(raw) >= 8 else ""
+        else:
+            # Governor Bravo splits a named action in two: the name lives in `signatures[i]`
+            # and `calldatas[i]` holds the arguments *alone*. The Timelock computes
+            # bytes4(keccak256(signature)) at execution time and prepends it, so the selector
+            # is defined by the name rather than found in the bytes.
+            #
+            # Reading `raw[:8]` here would return the first four bytes of the first argument.
+            # For a leading `address` that is 0x00000000, which `_resolve_one` settles as
+            # unnameable -- so every named action became OPAQUE and UNDERSPECIFIED was the
+            # only verdict this contract could ever reach on a Compound-shaped proposal. That
+            # is the bug this branch fixes, and it was found by running Compound proposal 294
+            # live: eight actions with published names, all eight reported opaque.
+            selector = _synthetic_selector(declared)
         out.append({
             "index": i,
             "target": str(targets[i]).strip().lower(),
             "value": _u256_str(values[i]),
-            "selector": ("0x" + raw[:8]) if len(raw) >= 8 else "",
-            "signature": str(signatures[i]),
+            "selector": selector,
+            "signature": declared,
             "resolved": "false",
         })
     return out
@@ -2572,6 +2590,20 @@ def _resolve_one(selector: str, cache: dict, budget: list) -> dict:
 def _enrich_action(bare: dict, calldata_hex: str, cache: dict, budget: list) -> dict:
     """Resolve an action's selector, then unwrap one level of cargo if it has any.
 
+    A call gets its name from one of two places, and `name_source` records which:
+
+    `governor` -- Governor Bravo carries the function name in its own `signatures[i]`, and
+    the Timelock hashes that string to build the call. Nothing needs looking up, and no
+    third party is trusted: the name is the Governor's own declaration of what will run.
+
+    `selector` -- an unnamed action carries a full payload instead, so the name has to be
+    recovered from the 4-byte selector through 4byte and then confirmed by hashing. Every
+    Uniswap action measured is this shape.
+
+    Both provenances end up keccak-consistent with the selector, which is why the prompt can
+    say no name is a guess. They are not equally strong evidence, though, so the model is
+    told which one it is looking at rather than being handed a flat list.
+
     The unwrap is driven by *types*, not by a wrapper allowlist. Once a signature is
     keccak-verified the contract knows the parameter types, so the first `bytes` parameter
     is the cargo and the first `address` parameter is where it is going. This was not the
@@ -2594,18 +2626,34 @@ def _enrich_action(bare: dict, calldata_hex: str, cache: dict, budget: list) -> 
         "nested_target": "",
         "arg_summary": "",
         "structural_failure": "",
+        "name_source": "",
         "depth_limited": False,
     })
 
-    verdict = _resolve_one(bare.get("selector", ""), cache, budget)
-    if not verdict["resolved"]:
-        out["resolved"] = "false"
-        out["signature"] = ""
-        return out
-
-    signature = verdict["signature"]
-    out["resolved"] = "true"
-    out["signature"] = signature
+    declared = str(bare.get("signature", "")).strip()
+    if declared != "":
+        # The Governor published the function name itself, and the Timelock will hash exactly
+        # this string to build the call. So the name is authoritative and the keccak check is
+        # satisfied by construction -- `_bare_actions` derived this action's selector from
+        # this very signature. Asking 4byte to name a call the chain has already named would
+        # be strictly weaker evidence, and on a leading-address argument it names nothing.
+        signature = declared
+        out["resolved"] = "true"
+        out["signature"] = signature
+        out["name_source"] = "governor"
+        # `calldatas[i]` holds the arguments with no selector in front, and `decode_calldata`
+        # expects a whole payload, so the selector goes back on before decoding.
+        calldata_hex = str(bare.get("selector", "")) + _strip_0x(calldata_hex).lower()
+    else:
+        verdict = _resolve_one(bare.get("selector", ""), cache, budget)
+        if not verdict["resolved"]:
+            out["resolved"] = "false"
+            out["signature"] = ""
+            return out
+        signature = verdict["signature"]
+        out["resolved"] = "true"
+        out["signature"] = signature
+        out["name_source"] = "selector"
 
     decoded = decode_calldata(calldata_hex, signature)
     if not decoded["ok"]:
@@ -2682,7 +2730,21 @@ def _prompt_action_block(actions: list) -> str:
         lines.append("  target: " + str(entry.get("target", "")))
         lines.append("  value (wei): " + str(entry.get("value", "0")))
         if str(entry.get("resolved", "false")) == "true":
-            lines.append("  function: " + str(entry.get("signature", "")))
+            if str(entry.get("name_source", "")) == "governor":
+                lines.append(
+                    "  function: "
+                    + str(entry.get("signature", ""))
+                    + "  (declared by the Governor itself, and the Timelock hashes this "
+                    + "name to build the call)"
+                )
+            else:
+                lines.append(
+                    "  function: "
+                    + str(entry.get("signature", ""))
+                    + "  (recovered from selector "
+                    + str(entry.get("selector", ""))
+                    + " and confirmed by hashing)"
+                )
             summary = str(entry.get("arg_summary", ""))
             if summary != "":
                 lines.append("  arguments: " + summary)
@@ -3389,9 +3451,10 @@ itself emitted. This is the text token holders vote on:
 
 THE EXECUTABLE ACTIONS — decoded from that same event, and independently corroborated: the
 event's action array, the Governor's own getActions({int(proposal_id)}) response, and a second
-provider's getActions response all hash to {actions_digest}. Every function name below was
-confirmed by hashing the name and comparing it to the on-chain selector, so no name here is
-a guess:
+provider's getActions response all hash to {actions_digest}. No function name below is a guess.
+Each was established one of two ways, and each line says which: either the Governor published
+the name itself, in which case the Timelock will hash exactly that name to build the call, or
+the name was recovered from the on-chain 4-byte selector and then confirmed by hashing it back:
 {_prompt_action_block(enriched)}
 {"NOTE: this proposal has " + str(len(log_actions)) + " actions and only the first " + str(MAX_ACTIONS) + " are shown above. The rest were NOT examined." if truncated else ""}
 
